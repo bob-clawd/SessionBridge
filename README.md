@@ -24,10 +24,11 @@ SessionBridge is a lightweight, file-based tool that persists agent session stat
 
 ## Status
 
-**v1.3 — Implemented and tested.** ✅
+**v1.8 — Implemented and tested.** ✅
 
-- **778 lines** of Bash, split across 6 modules (1 CLI + 5 lib)
-- **17 passing tests** covering all core features
+- **Bash CLI** — bridge.sh with 7 lib modules
+- **30 passing tests** covering all core features
+- **MCP Server** — agent-native integration via Model Context Protocol
 - **Ready for dogfooding** — deployed in personal OpenClaw workspace
 
 ## Quick Start
@@ -61,3 +62,50 @@ echo "$SB_ACTIVE_TASKS"
 
 SessionBridge is actively used by the author's OpenClaw workspace.
 The `integrate.sh` script wires it into agent session start/stop flow.
+
+## MCP Server
+
+SessionBridge provides a Model Context Protocol (MCP) server for agent-native
+integration. Any MCP-aware agent can use SessionBridge tools directly.
+
+```bash
+# Install dependencies
+npm install
+
+# Run as stdio server (for MCP agent integration)
+node mcp-server.js
+
+# Run as SSE server on :3001
+node mcp-server.js --port
+```
+
+### MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `sb_init` | Initialize a session |
+| `sb_status` | Show session status |
+| `sb_summary` | Show comprehensive summary |
+| `sb_log` | Log an event |
+| `sb_heartbeat` | Log a heartbeat |
+| `sb_recent` | Show recent events |
+| `sb_task_add` | Add an active task |
+| `sb_task_done` | Complete a task |
+| `sb_decision` | Log a decision |
+| `sb_touch` | Record a file touch |
+| `sb_bookmark_save/restore/list/delete` | Manage bookmarks |
+| `sb_tag_list` | List tags |
+| `sb_gc` | Garbage collect events |
+
+### MCP Resources
+
+| URI | Description |
+|-----|-------------|
+| `sessionbridge://context` | Current session context |
+| `sessionbridge://recent/10` | Last 10 events |
+| `sessionbridge://recent/50` | Last 50 events |
+
+### MCP Prompts
+
+- `session_recovery` — Full context recovery for resuming work
+- `activity_report` — Generate session activity report

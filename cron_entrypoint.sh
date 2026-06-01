@@ -17,8 +17,16 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE="${SCRIPT_DIR}/bridge.sh"
+SESSION_DIR="${SCRIPT_DIR}/.session-bridge"
 
 echo "=== SessionBridge: Cron Entrypoint ==="
+
+# Auto-init if no session exists yet
+if [ ! -f "${SESSION_DIR}/context.json" ]; then
+    echo "[SessionBridge] No active session — initializing..."
+    "$BRIDGE" init "Hourly cron project work"
+    echo "[SessionBridge] Session initialized."
+fi
 
 # 1. Heartbeat — loggt Liveness
 echo "[SessionBridge] Heartbeat..."

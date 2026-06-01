@@ -282,11 +282,46 @@ in seconds, making it detectable by monitoring tools.
 - **Context is separate from log**: Context is a snapshot; log is history. Don't mix them.
 - **jq --arg for safe injection**: All string interpolation goes through `jq --arg` to prevent JSON injection from arbitrary task/file names.
 
-## Future Ideas
+## MCP Server (`mcp-server.js`)
+
+A Model Context Protocol server that wraps SessionBridge functionality for
+agent-native integration. Built with the `@modelcontextprotocol/sdk`.
+
+### Architecture
+
+```
+MCP Agent ←→ MCP Stdio/SSE ←→ mcp-server.js ←exec→ bridge.sh ←→ .session-bridge/
+```
+
+### Exposed Components
+
+**Tools (17):** sb_init, sb_status, sb_summary, sb_log, sb_heartbeat,
+sb_recent, sb_task_add, sb_task_done, sb_decision, sb_touch,
+sb_bookmark_{save,restore,list,delete}, sb_tag_list, sb_gc
+
+**Resources (3):** sessionbridge://context, sessionbridge://recent/10,
+sessionbridge://recent/50
+
+**Prompts (2):** session_recovery, activity_report
+
+### Transport
+
+- **stdio** (default) — for direct MCP agent integration
+- **SSE** (`--port` flag) — for remote access on :3001
+
+### Why MCP?
+
+- Standard protocol — any MCP-aware agent can use SessionBridge
+- No shell dependency — agents call typed JSON-RPC tools
+- Resources provide structured data, Prompts provide resume context
+
+## Completed Items
 
 - ✅ `bridge.sh tags` — tag-based filtering of events (v1.5)
 - ✅ `bridge.sh merge` — merge events from multiple sessions (v1.6)
 - ✅ `bridge.sh end` — session end with automatic summary (v1.7)
 - ✅ `bridge.sh heartbeat` — periodic liveness heartbeat (v1.7)
 - ✅ `bridge.sh autockpt` — auto-checkpoint on long idle (v1.8)
-- SessionBridge MCP server for agent-native integration
+- ✅ **MCP server** — agent-native integration (v1.9)
+
+## Future Ideas

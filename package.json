@@ -1,0 +1,29 @@
+{
+  "name": "session-bridge",
+  "version": "1.8.0",
+  "description": "A session continuity bridge for OpenClaw agents.",
+  "main": "bridge.sh",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "bash test/run_tests.sh",
+    "start": "node mcp-server.js",
+    "start:sse": "node mcp-server.js --port"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bob-clawd/SessionBridge.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bob-clawd/SessionBridge/issues"
+  },
+  "homepage": "https://github.com/bob-clawd/SessionBridge#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}
