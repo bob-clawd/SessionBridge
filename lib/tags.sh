@@ -4,42 +4,56 @@
 # Show all known tags with event counts
 # Usage: sb_tag_list
 sb_tag_list() {
-    if [ ! -f "${EVENTS_FILE}" ]; then
-        echo "No tags found (no events)."
-        return
-    fi
-
     if ! command -v jq &>/dev/null; then
         echo "Error: jq required for tag operations" >&2
         return 1
     fi
-
-    local has_tags
-    has_tags=$(jq -r 'select(.data.tags != null and (.data.tags | length) > 0) | .data.tags[]' "${EVENTS_FILE}" 2>/dev/null | sort | uniq -c | sort -rn)
-
-    if [ -z "$has_tags" ]; then
-        echo "No tags found."
-        return
-    fi
-
-    local total_tagged
-    total_tagged=$(echo "$has_tags" | awk '{sum += $1} END {print sum}')
 
     echo ""
     echo "╔═══════════════════════════════════════════╗"
     echo "║           SessionBridge Tags              ║"
     echo "╚═══════════════════════════════════════════╝"
     echo ""
-    echo "  Total tagged events: ${total_tagged}"
-    echo ""
 
-    echo "  Tags:"
-    echo "$has_tags" | while IFS= read -r line; do
-        local count name
-        count=$(echo "$line" | awk '{print $1}')
-        name=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
-        echo "    #${name}  (${count})"
-    done
+    # --- Session-level tags (from context) ---
+    local session_tags
+    session_tags=$(sb_read_context | jq -r '.tags // [] | if type == "array" then .[] elif type == "object" then keys[] else empty end' 2>/dev/null)
+
+    if [ -n "$session_tags" ]; then
+        echo "  Session Tags:"
+        echo "$session_tags" | while IFS= read -r tag; do
+            [ -n "$tag" ] && echo "    #${tag}  (session)"
+        done
+        echo ""
+    fi
+
+    # --- Event-level tags (from events.jsonl) ---
+    if [ ! -f "${EVENTS_FILE}" ]; then
+        echo "  No event-level tags."
+        echo ""
+        return
+    fi
+
+    local has_tags
+    has_tags=$(jq -r 'select(.data.tags != null and (.data.tags | length) > 0) | .data.tags[]' "${EVENTS_FILE}" 2>/dev/null | sort | uniq -c | sort -rn)
+
+    if [ -z "$has_tags" ] && [ -z "$session_tags" ]; then
+        echo "  No tags found."
+        echo ""
+        return
+    fi
+
+    if [ -n "$has_tags" ]; then
+        local total_tagged
+        total_tagged=$(echo "$has_tags" | awk '{sum += $1} END {print sum}')
+        echo "  Event Tags  (${total_tagged} tagged events):"
+        echo "$has_tags" | while IFS= read -r line; do
+            local count name
+            count=$(echo "$line" | awk '{print $1}')
+            name=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
+            echo "    #${name}  (${count} events)"
+        done
+    fi
     echo ""
 }
 

@@ -295,6 +295,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           summary: { type: 'string', description: 'Session summary/description', default: 'Session initialized' },
           gc_keep: { type: 'number', description: 'Auto-GC: keep only last N events', default: 500 },
+          tags: { type: 'array', items: { type: 'string' }, description: 'Session-level tags', default: [] },
         },
       },
     },
@@ -464,9 +465,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (name) {
     case 'sb_init': {
       const summary = safe(args?.summary || 'Session initialized');
+      const tags = args?.tags || [];
       const envOverrides = {};
       if (args?.gc_keep) envOverrides.SB_GC_KEEP = String(args.gc_keep);
-      const result = runBridge(`init ${shellEscape(summary)}`, envOverrides);
+      let cmd = `init ${shellEscape(summary)}`;
+      if (tags.length > 0) {
+        cmd += ' --tag ' + tags.map(t => shellEscape(t)).join(' --tag ');
+      }
+      const result = runBridge(cmd, envOverrides);
       return { content: [{ type: 'text', text: result.ok ? `Session initialized: ${summary}` : `Error: ${result.stderr}` }] };
     }
 

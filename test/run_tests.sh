@@ -548,6 +548,61 @@ test_export_no_init() {
     teardown
 }
 
+test_init_with_tags() {
+    setup
+    local output
+    output=$("$BRIDGE" init "Tagged session" --tag feature demo 2>&1)
+    echo "$output" | grep -q "Tags: #feature demo" || { echo "Init output missing tag line"; teardown; return 1; }
+    # Tags stored in context
+    local ctx_tags
+    ctx_tags=$(cat .session-bridge/context.json | jq -r '.tags | join(",")' 2>/dev/null)
+    [ "$ctx_tags" = "demo,feature" -o "$ctx_tags" = "feature,demo" ] || { echo "Context tags wrong: $ctx_tags"; teardown; return 1; }
+    # Tags in session_start event
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="session_start" and (.data.tags | index("feature")) and (.data.tags | index("demo")))' >/dev/null 2>&1 || { echo "session_start missing tags"; teardown; return 1; }
+    teardown
+}
+
+test_init_without_tags() {
+    setup
+    local output
+    output=$("$BRIDGE" init "Plain session" 2>&1)
+    echo "$output" | grep -q "Tags:" && { echo "Should not show tags without --tag"; teardown; return 1; }
+    # Tags should be empty array in context
+    local ctx_tags
+    ctx_tags=$(cat .session-bridge/context.json | jq -r '.tags | length' 2>/dev/null)
+    [ "$ctx_tags" = "0" ] || { echo "Context tags should be empty: $ctx_tags"; teardown; return 1; }
+    teardown
+}
+
+test_tag_list_shows_session_tags() {
+    setup
+    "$BRIDGE" init "Tag session" --tag alpha beta >/dev/null 2>&1
+    local output
+    output=$("$BRIDGE" tag list 2>&1)
+    echo "$output" | grep -q "#alpha" || { echo "Tag list missing alpha"; teardown; return 1; }
+    echo "$output" | grep -q "#beta" || { echo "Tag list missing beta"; teardown; return 1; }
+    echo "$output" | grep -q "session" || { echo "Should show '(session)' marker"; teardown; return 1; }
+    teardown
+}
+
+test_init_with_mixed_tags_and_auto_gc() {
+    setup
+    "$BRIDGE" init "First" >/dev/null 2>&1
+    for i in $(seq 1 10); do
+        "$BRIDGE" log test "{\"n\":$i}" >/dev/null 2>&1
+    done
+    # Re-init with tags and auto-GC
+    local output
+    output=$(SB_GC_KEEP=3 "$BRIDGE" init "Mixed" --tag gc-tag 2>&1)
+    echo "$output" | grep -q "Tags: #gc-tag" || { echo "Missing tag line"; teardown; return 1; }
+    echo "$output" | grep -q "Auto-GC" || { echo "Missing auto-gc line"; teardown; return 1; }
+    # Verify GC worked (3 kept + 1 new session_start = 4)
+    local event_count
+    event_count=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    [ "$event_count" -eq 4 ] || { echo "Expected 4 events after GC+init, got $event_count"; teardown; return 1; }
+    teardown
+}
+
 test_autockpt_not_idle() {
     setup
     "$BRIDGE" init "Not idle" >/dev/null 2>&1
@@ -620,6 +675,10 @@ run_test "export: Markdown to file" test_export_markdown_to_file
 run_test "export: JSON output" test_export_json
 run_test "export: JSON to file" test_export_json_to_file
 run_test "export: fails without init" test_export_no_init
+run_test "init with --tag stores in context and event" test_init_with_tags
+run_test "init without --tag uses empty array" test_init_without_tags
+run_test "tag list shows session-level tags" test_tag_list_shows_session_tags
+run_test "init with --tag and auto-gc" test_init_with_mixed_tags_and_auto_gc
 
 echo ""
 echo "========================"

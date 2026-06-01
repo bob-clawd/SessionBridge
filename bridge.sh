@@ -24,7 +24,7 @@ show_help() {
 SessionBridge — Agent session continuity
 
 USAGE:
-  bridge.sh init [summary]    Initialize a new session (set SB_GC_KEEP for auto-GC)
+  bridge.sh init [summary] [--tag t1 t2...]   Initialize a new session (set SB_GC_KEEP for auto-GC)
   bridge.sh status            Show current session status
   bridge.sh summary           Show a comprehensive session summary with stats
   bridge.sh env               Emit shell env vars (source via: source <(bridge.sh env))
@@ -87,7 +87,27 @@ main() {
     case "${cmd}" in
         init)
             sb_require_jq
-            local summary="${1:-Session initialized}"
+            local summary="Session initialized"
+            local tags=()
+            local tags_json="[]"
+            local positional_done=0
+            local consuming_tags=0
+
+            for arg in "$@"; do
+                if [ "$arg" = "--tag" ]; then
+                    consuming_tags=1
+                elif [ $consuming_tags -eq 1 ]; then
+                    tags+=("$arg")
+                elif [ $positional_done -eq 0 ]; then
+                    summary="$arg"
+                    positional_done=1
+                fi
+            done
+
+            if [ ${#tags[@]} -gt 0 ]; then
+                tags_json=$(printf '%s\n' "${tags[@]}" | jq -R . | jq -s -c .)
+            fi
+
             local keep_gc="${SB_GC_KEEP:-}"
 
             # Auto-GC: if SB_GC_KEEP is set, gc before init
@@ -96,10 +116,23 @@ main() {
             fi
 
             local session_id
-            session_id=$(sb_init_context "${summary}")
-            sb_log session_start "{\"reason\":\"init\",\"summary\":\"${summary}\"}" "${session_id}"
+            session_id=$(sb_init_context "${summary}" "${tags_json}")
+
+            # Build session_start data with tags
+            local start_data
+            start_data=$(jq -n \
+                --arg reason "init" \
+                --arg summary "$summary" \
+                --argjson tags "$tags_json" \
+                '{"reason":$reason,"summary":$summary,"tags":$tags}')
+
+            sb_log session_start "${start_data}" "${session_id}"
+
             echo "SessionBridge initialized."
             echo "Session ID: ${session_id}"
+            if [ ${#tags[@]} -gt 0 ]; then
+                echo "Tags: #${tags[*]}"
+            fi
             if [ -n "${keep_gc}" ]; then
                 echo "Auto-GC: keeping last ${keep_gc} events"
             fi

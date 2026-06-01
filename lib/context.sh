@@ -2,9 +2,11 @@
 # Functions for current session context tracking
 
 # Initialize session context
-# Usage: sb_init_context [summary]
+# Usage: sb_init_context [summary] [tags_json]
+# tags_json: optional JSON array of strings, e.g. '["foo","bar"]'
 sb_init_context() {
     local summary="${1:-Session initialized}"
+    local tags_json="${2:-[]}"
     local session_id
     session_id=$(sb_uuid)
     local started_at
@@ -16,6 +18,7 @@ sb_init_context() {
         --arg sid "$session_id" \
         --arg started "$started_at" \
         --arg summary "$summary" \
+        --argjson tags "$tags_json" \
         '{
             "session_id": $sid,
             "started_at": $started,
@@ -23,7 +26,7 @@ sb_init_context() {
             "completed_tasks": [],
             "recent_decisions": [],
             "recent_files": [],
-            "tags": {},
+            "tags": $tags,
             "summary": $summary
         }' | sb_write_context
 
