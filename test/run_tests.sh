@@ -105,6 +105,81 @@ test_touch() {
     teardown
 }
 
+test_env_emits_vars() {
+    setup
+    "$BRIDGE" init "Env test" >/dev/null 2>&1
+    "$BRIDGE" task add "Task A" >/dev/null 2>&1
+
+    # Source the env output
+    eval "$("$BRIDGE" env 2>/dev/null)"
+
+    [ -n "$SB_SESSION_ID" ] || { echo "SB_SESSION_ID empty"; teardown; return 1; }
+    [ "$SB_SUMMARY" = "Env test" ] || { echo "SB_SUMMARY wrong: $SB_SUMMARY"; teardown; return 1; }
+    [ "$SB_EVENT_COUNT" -ge 2 ] 2>/dev/null || { echo "SB_EVENT_COUNT wrong: $SB_EVENT_COUNT"; teardown; return 1; }
+    [ -n "$SB_COMPLETED_COUNT" ] || { echo "SB_COMPLETED_COUNT empty"; teardown; return 1; }
+    [ "$SB_BOOKMARK_COUNT" = "0" ] 2>/dev/null || { echo "SB_BOOKMARK_COUNT wrong: $SB_BOOKMARK_COUNT"; teardown; return 1; }
+
+    teardown
+}
+
+test_env_task_vars() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+    "$BRIDGE" task add "Complex task name" >/dev/null 2>&1
+
+    eval "$("$BRIDGE" env 2>/dev/null)"
+
+    echo "$SB_ACTIVE_TASKS" | grep -q "Complex task name" || {
+        echo "SB_ACTIVE_TASKS missing task: $SB_ACTIVE_TASKS"; teardown; return 1;
+    }
+
+    teardown
+}
+
+test_gc_removes_old_events() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+
+    # Add some events
+    for i in $(seq 1 10); do
+        "$BRIDGE" log test "{\"n\":$i}" >/dev/null 2>&1
+    done
+
+    local before
+    before=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    [ "$before" -eq 11 ] || { echo "Expected 11 events before gc, got $before"; teardown; return 1; }
+
+    # GC keep 3
+    "$BRIDGE" gc 3 >/dev/null 2>&1
+
+    local after
+    after=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    [ "$after" -eq 3 ] || { echo "Expected 3 events after gc, got $after"; teardown; return 1; }
+
+    # Verify the kept events are the latest ones
+    local last_event
+    last_event=$(tail -1 .session-bridge/events.jsonl | jq -r '.data.n // empty')
+    [ "$last_event" = "10" ] || { echo "Last event should be n=10, got $last_event"; teardown; return 1; }
+
+    teardown
+}
+
+test_gc_noop_when_under_limit() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+    "$BRIDGE" log test1 '{}' >/dev/null 2>&1
+    "$BRIDGE" log test2 '{}' >/dev/null 2>&1
+
+    local before
+    before=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    "$BRIDGE" gc 100 >/dev/null 2>&1
+    local after
+    after=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    [ "$after" -eq "$before" ] || { echo "GC should be noop, $before -> $after"; teardown; return 1; }
+
+    teardown
+}
+
 test_bookmark_save_restore() {
     setup
     "$BRIDGE" init "Bookmarks" >/dev/null 2>&1
@@ -182,6 +257,10 @@ run_test "bookmark list" test_bookmark_list
 run_test "recent events" test_recent
 run_test "checkpoint" test_checkpoint
 run_test "multiple sessions" test_multiple_sessions
+run_test "env emits vars" test_env_emits_vars
+run_test "env task variables" test_env_task_vars
+run_test "gc removes old events" test_gc_removes_old_events
+run_test "gc noop under limit" test_gc_noop_when_under_limit
 
 echo ""
 echo "========================"

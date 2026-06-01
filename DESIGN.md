@@ -96,6 +96,12 @@ Fields:
 # Show recent events
 ./bridge.sh recent [n]
 
+# Emit shell env vars for agent sourcing
+source <(./bridge.sh env)
+
+# Garbage-collect old events (keep last 500 by default)
+./bridge.sh gc [keep]
+
 # Save a bookmark
 ./bridge.sh bookmark save pre-refactor
 
@@ -105,6 +111,34 @@ Fields:
 # List bookmarks
 ./bridge.sh bookmark list
 ```
+
+## Agent Integration (`bridge.sh env`)
+
+Source the env output to import session state as shell variables:
+
+```bash
+source <(./bridge.sh env)
+# Now available:
+#   $SB_SESSION_ID      — current session UUID
+#   $SB_STARTED_AT      — ISO timestamp of session start
+#   $SB_SUMMARY         — session summary string
+#   $SB_ACTIVE_TASKS    — newline-separated active tasks
+#   $SB_EVENT_COUNT     — total events in log
+#   $SB_COMPLETED_COUNT — number of completed tasks
+#   $SB_BOOKMARK_COUNT   — number of saved bookmarks
+#   $SB_SESSION_DIR     — absolute path to .session-bridge/
+```
+
+## Garbage Collection (`bridge.sh gc`)
+
+Remove old events from the log to keep it manageable:
+
+```bash
+./bridge.sh gc          # keep last 500 events
+./bridge.sh gc 100      # keep last 100 events
+```
+
+Uses atomic temp-file rename, safe for concurrent use.
 
 ## Session Recovery Flow
 
@@ -120,10 +154,12 @@ Fields:
 - **File-based over MCP**: No server/port binding, works in any environment
 - **Bash CLI**: Shell-agnostic, works on any POSIX system
 - **Context is separate from log**: Context is a snapshot; log is history. Don't mix them.
+- **jq --arg for safe injection**: All string interpolation goes through `jq --arg` to prevent JSON injection from arbitrary task/file names.
 
 ## Future Ideas
 
 - `bridge.sh diff` — compare current context with last bookmark
-- `bridge.sh gc` — garbage-collect old events from log
+- `bridge.sh tags` — tag-based filtering of events
 - Auto-checkpoint on long idle
-- `bridge.sh env` — emit shell env vars for sourcing into agents
+- `bridge.sh summary` — generate a natural-language summary of the session
+- Retention policy config (auto-gc on start)

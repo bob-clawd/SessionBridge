@@ -22,8 +22,10 @@ SessionBridge — Agent session continuity
 USAGE:
   bridge.sh init [summary]    Initialize a new session
   bridge.sh status            Show current session status
+  bridge.sh env               Emit shell env vars (source via: source <(bridge.sh env))
   bridge.sh log <type> [data] Log an event (data as JSON string)
   bridge.sh recent [n]        Show recent N events (default 10)
+  bridge.sh gc [keep]         Garbage-collect events, keep last N (default 500)
   bridge.sh checkpoint [note] Save a checkpoint event
   bridge.sh task add <name>   Add an active task
   bridge.sh task done <name>  Mark task as completed
@@ -41,6 +43,14 @@ EXAMPLES:
   bridge.sh touch src/main.py created
   bridge.sh recent 5
   bridge.sh bookmark save pre-refactor
+
+SOURCE INTO AGENT (bash/zsh):
+  source <(bridge.sh env)
+  echo \"Session: \$SB_SESSION_ID\"
+  echo \"Tasks: \$SB_ACTIVE_TASKS\"
+
+HOUSEKEEPING:
+  bridge.sh gc [keep=N]   Remove all but last N events from log
 HELP
 }
 
@@ -65,6 +75,11 @@ main() {
             sb_status
             ;;
 
+        env)
+            sb_require_jq
+            sb_env
+            ;;
+
         log)
             if [ $# -lt 1 ]; then
                 echo "Usage: bridge.sh log <event_type> [json_data]" >&2
@@ -79,6 +94,11 @@ main() {
         recent)
             local count="${1:-10}"
             sb_recent "${count}"
+            ;;
+
+        gc)
+            local keep="${1:-500}"
+            sb_gc "${keep}"
             ;;
 
         checkpoint)

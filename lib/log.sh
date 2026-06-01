@@ -17,14 +17,22 @@ sb_log() {
         session_id=$(sb_read_context | jq -r '.session_id // empty' 2>/dev/null)
     fi
 
-    # Build event JSON
+    # Build event JSON safely with jq to avoid injection
+    # -c = compact output so each event is one JSONL line
     local event
     if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
-        event=$(printf '{"t":"%s","e":"%s","data":%s,"s":"%s"}' \
-            "$timestamp" "$event_type" "$data" "$session_id")
+        event=$(jq -c -n \
+            --arg t "$timestamp" \
+            --arg e "$event_type" \
+            --argjson d "$data" \
+            --arg s "$session_id" \
+            '{"t":$t,"e":$e,"data":$d,"s":$s}')
     else
-        event=$(printf '{"t":"%s","e":"%s","data":%s}' \
-            "$timestamp" "$event_type" "$data")
+        event=$(jq -c -n \
+            --arg t "$timestamp" \
+            --arg e "$event_type" \
+            --argjson d "$data" \
+            '{"t":$t,"e":$e,"data":$d}')
     fi
 
     echo "$event" >> "${EVENTS_FILE}"
@@ -67,4 +75,42 @@ sb_events_by_type() {
 sb_last_event() {
     local event_type="$1"
     sb_events_by_type "$event_type" 1
+}
+
+# Garbage-collect old events, keeping only the last N
+# Usage: sb_gc [keep]
+# Default: keep the last 500 events
+sb_gc() {
+    local keep="${1:-500}"
+    if [ ! -f "${EVENTS_FILE}" ]; then
+        echo "No events to clean."
+        return
+    fi
+
+    local total
+    total=$(sb_event_count)
+
+    if [ "$total" -le "$keep" ]; then
+        echo "Events (${total}) within keep limit (${keep}), nothing to clean."
+        return
+    fi
+
+    local remove_count=$((total - keep))
+    local tmp
+    tmp="${EVENTS_FILE}.tmp.$$"
+
+    tail -n "$keep" "${EVENTS_FILE}" > "$tmp"
+    mv "$tmp" "${EVENTS_FILE}"
+
+    echo "GC: removed ${remove_count} old events, kept ${keep}"
+}
+
+# Get event log file size (bytes)
+# Usage: sb_log_size
+sb_log_size() {
+    if [ ! -f "${EVENTS_FILE}" ]; then
+        echo 0
+        return
+    fi
+    wc -c < "${EVENTS_FILE}" | tr -d ' '
 }

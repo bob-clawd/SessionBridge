@@ -59,15 +59,17 @@ sb_bookmark_list() {
         return
     fi
 
-    local count
-    count=$(ls "${BOOKMARKS_DIR}"/*.json 2>/dev/null | wc -l)
-    if [ "$count" -eq 0 ]; then
+    # Check if any json files exist (nullglob-safe)
+    local files
+    files=$(ls "${BOOKMARKS_DIR}"/*.json 2>/dev/null || true)
+    if [ -z "$files" ]; then
         echo "No bookmarks."
         return
     fi
 
     echo "Bookmarks:"
     for f in "${BOOKMARKS_DIR}"/*.json; do
+        if [ ! -f "$f" ]; then continue; fi
         local name
         name=$(basename "$f" .json)
         local saved_at
