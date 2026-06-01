@@ -330,3 +330,19 @@ sessionbridge://recent/50
 - ✅ **MCP server** — agent-native integration (v1.9)
 
 ## Future Ideas
+
+- **sb_top / timesink report** — Show which tasks consumed the most events / time
+  (derived from task_start/task_end pairs). Useful to identify where agent cycles are spent.
+- **Context compression** — Summarize stale context entries (>2h) into a single
+  compressed "archive" entry to keep context.json lean for long-lived sessions.
+- **sb_export** — Export session log as Markdown report (human-readable summary
+  of all events, decisions, tasks with timestamps). Useful for sharing or
+  committing to git as a session artifact.
+- **Merged session dashboard** — After `bridge.sh merge`, show a side-by-side
+  timeline of events from both source sessions for visual comparison.
+- **MCP resource for full event log** — Add `sessionbridge://events` resource
+  to stream the entire events.jsonl via MCP for agent consumption.
+- **Session tags on init** — Allow `bridge.sh init "Summary" --tag foo bar` to
+  tag the entire session for later filtering.
+- **Auto-expire stale sessions in GC** — When running GC, also clean up stale
+  context.json / bookmarks for sessions older than N days.

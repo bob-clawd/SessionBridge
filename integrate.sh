@@ -36,7 +36,7 @@ source <("$BRIDGE" env 2>/dev/null) || true
 
 echo ""
 echo " ╔══════════════════════════════════════╗"
-echo " ║     SessionBridge Active v1.3        ║"
+echo " ║     SessionBridge Active v1.12       ║"
 echo " ╠══════════════════════════════════════╣"
 echo " ║  Session:  ${SB_SUMMARY:-$SESSION_SUMMARY}"
 echo " ║  ID:       ${SB_SESSION_ID:-(unknown)}"
