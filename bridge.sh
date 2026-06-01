@@ -29,6 +29,7 @@ USAGE:
   bridge.sh env               Emit shell env vars (source via: source <(bridge.sh env))
   bridge.sh end [reason]      End session with automatic summary
   bridge.sh heartbeat          Log a heartbeat event (for cron/periodic use)
+  bridge.sh autockpt [min]     Auto-checkpoint if idle > N minutes (default 15)
   bridge.sh log <type> [data] Log an event (data as JSON string)
   bridge.sh recent [n]        Show recent N events (default 10)
   bridge.sh diff <bookmark>   Compare current context with a saved bookmark
@@ -71,6 +72,7 @@ MERGE:
 SESSION LIFECYCLE:
   bridge.sh end [reason]                 End session with summary
   bridge.sh heartbeat                    Log a periodic heartbeat event
+  bridge.sh autockpt [min]               Auto-checkpoint if idle > N minutes (default 15)
 HELP
 }
 
@@ -248,6 +250,12 @@ main() {
         heartbeat)
         sb_require_jq
         sb_heartbeat
+        ;;
+
+        autockpt)
+        sb_require_jq
+        local idle_min="${1:-15}"
+        sb_autockpt "${idle_min}"
         ;;
 
         merge)

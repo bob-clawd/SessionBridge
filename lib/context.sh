@@ -206,6 +206,60 @@ sb_session_end() {
 
 # Log a heartbeat event with session status
 # Usage: sb_heartbeat
+# Automatically log a checkpoint if the session has been idle too long
+# Usage: sb_autockpt [idle_minutes]
+# Default idle threshold: 15 minutes
+sb_autockpt() {
+    local idle_threshold_min="${1:-15}"
+    local idle_threshold_sec=$((idle_threshold_min * 60))
+
+    if [ ! -f "${EVENTS_FILE}" ]; then
+        echo "No events yet, nothing to checkpoint."
+        return
+    fi
+
+    local last_ts
+    last_ts=$(tail -1 "${EVENTS_FILE}" | jq -r '.t // empty' 2>/dev/null)
+    if [ -z "$last_ts" ]; then
+        echo "Could not read last event timestamp."
+        return
+    fi
+
+    # Convert timestamps to epoch seconds (GNU date only)
+    local last_epoch now_epoch
+    if date --version 2>/dev/null | grep -q GNU; then
+        last_epoch=$(date -d "$last_ts" +%s 2>/dev/null || echo 0)
+    else
+        # macOS fallback
+        last_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S%z" "$last_ts" +%s 2>/dev/null || echo 0)
+    fi
+    now_epoch=$(date +%s)
+
+    if [ "$last_epoch" -eq 0 ]; then
+        echo "Could not parse timestamp, skipping."
+        return
+    fi
+
+    local idle_sec=$((now_epoch - last_epoch))
+
+    if [ "$idle_sec" -lt "$idle_threshold_sec" ]; then
+        local remaining=$((idle_threshold_sec - idle_sec))
+        echo "Auto-checkpoint: not idle yet (${idle_sec}s idle, need ${idle_threshold_sec}s). ${remaining}s remaining."
+        return
+    fi
+
+    local idle_min
+    idle_min=$(echo "scale=1; ${idle_sec} / 60" | bc 2>/dev/null || echo "${idle_sec}")
+
+    # Log the checkpoint with idle info
+    sb_log checkpoint "$(jq -n \
+        --arg note "auto: idle ${idle_min}m" \
+        --argjson idle_sec "$idle_sec" \
+        '{"note":$note,"idle_seconds":$idle_sec,"auto":true}')"
+
+    echo "Auto-checkpoint: session idle for ${idle_min}m — checkpoint logged."
+}
+
 sb_heartbeat() {
     local ctx
     ctx=$(sb_read_context)

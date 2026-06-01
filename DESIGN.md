@@ -141,6 +141,10 @@ source <(./bridge.sh env)
 
 # Log a heartbeat event
 ./bridge.sh heartbeat              # logs event + prints status line
+
+# Auto-checkpoint on long idle
+./bridge.sh autockpt               # default: 15 min idle threshold
+./bridge.sh autockpt 60            # 60 min idle threshold
 ```
 
 ## Agent Integration (`bridge.sh env`)
@@ -238,6 +242,29 @@ Useful for:
 - Heartbeat/file monitoring integrations
 - Long-running session health checks
 
+## Auto-Checkpoint (`bridge.sh autockpt`)
+
+Automatically log a checkpoint if the session has been idle beyond a threshold.
+Useful as a cron job or heartbeat integration to detect stale sessions.
+
+```bash
+./bridge.sh autockpt          # check if idle > 15 min, log if so
+./bridge.sh autockpt 60       # check if idle > 60 min
+```
+
+Output if idle:
+```
+Auto-checkpoint: session idle for 124m — checkpoint logged.
+```
+
+Output if not idle:
+```
+Auto-checkpoint: not idle yet (30s idle, need 900s). 870s remaining.
+```
+
+The logged checkpoint event includes `auto: true` and the idle duration
+in seconds, making it detectable by monitoring tools.
+
 ## Session Recovery Flow
 
 1. Agent starts → checks for `.session-bridge/`
@@ -261,5 +288,5 @@ Useful for:
 - ✅ `bridge.sh merge` — merge events from multiple sessions (v1.6)
 - ✅ `bridge.sh end` — session end with automatic summary (v1.7)
 - ✅ `bridge.sh heartbeat` — periodic liveness heartbeat (v1.7)
-- Auto-checkpoint on long idle
+- ✅ `bridge.sh autockpt` — auto-checkpoint on long idle (v1.8)
 - SessionBridge MCP server for agent-native integration

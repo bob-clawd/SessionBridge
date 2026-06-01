@@ -439,6 +439,54 @@ test_heartbeat() {
     teardown
 }
 
+test_autockpt_idle() {
+    setup
+    "$BRIDGE" init "AutoCkpt test" >/dev/null 2>&1
+    "$BRIDGE" log event1 '{}' >/dev/null 2>&1
+    # Manually set last event timestamp to 2 hours ago to trigger idle
+    local old_ts
+    if date --version 2>/dev/null | grep -q GNU; then
+        old_ts=$(date -d "-2 hours" -Iseconds 2>/dev/null)
+    else
+        old_ts=$(date -v -2H +"%Y-%m-%dT%H:%M:%S%z" 2>/dev/null || echo "")
+    fi
+    [ -z "$old_ts" ] && { teardown; return 0; }  # skip if date can't produce old ts
+    # Rewrite the last event with old timestamp (keep JSON valid)
+    local events_file=".session-bridge/events.jsonl"
+    local tmp
+    tmp=$(mktemp)
+    head -n -1 "$events_file" > "$tmp"
+    local last_event
+    last_event=$(tail -1 "$events_file")
+    echo "$last_event" | jq -c --arg t "$old_ts" '.t = $t' >> "$tmp"
+    mv "$tmp" "$events_file"
+
+    local output
+    output=$("$BRIDGE" autockpt 5 2>&1)
+    # Should have logged a checkpoint
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="checkpoint" and .data.auto==true)' >/dev/null 2>&1 || { echo "Auto-checkpoint not logged"; teardown; return 1; }
+
+    echo "$output" | grep -q "Auto-checkpoint" || { echo "Missing auto-checkpoint output"; teardown; return 1; }
+
+    teardown
+}
+
+test_autockpt_not_idle() {
+    setup
+    "$BRIDGE" init "Not idle" >/dev/null 2>&1
+    "$BRIDGE" log event1 '{}' >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" autockpt 60 2>&1)
+
+    # Should NOT have logged an auto-checkpoint
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="checkpoint" and .data.auto==true)' >/dev/null 2>&1 && { echo "Should not have logged auto-checkpoint"; teardown; return 1; }
+
+    echo "$output" | grep -q "not idle" || { echo "Expected 'not idle' message"; teardown; return 1; }
+
+    teardown
+}
+
 test_multiple_sessions() {
     setup
     "$BRIDGE" init "Session 1" >/dev/null 2>&1
@@ -488,6 +536,8 @@ run_test "auto-gc on init" test_auto_gc_on_init
 run_test "session end" test_session_end
 run_test "session end with reason" test_session_end_with_reason
 run_test "heartbeat" test_heartbeat
+run_test "auto-checkpoint (idle)" test_autockpt_idle
+run_test "auto-checkpoint (not idle)" test_autockpt_not_idle
 
 echo ""
 echo "========================"
