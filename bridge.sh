@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+#
+# SessionBridge — Agent session continuity tool
+#
+# Usage: bridge.sh <command> [args...]
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source library modules
+source "${SCRIPT_DIR}/lib/utils.sh"
+source "${SCRIPT_DIR}/lib/log.sh"
+source "${SCRIPT_DIR}/lib/context.sh"
+source "${SCRIPT_DIR}/lib/bookmarks.sh"
+
+# --- Help ---
+show_help() {
+    cat <<HELP
+SessionBridge — Agent session continuity
+
+USAGE:
+  bridge.sh init [summary]    Initialize a new session
+  bridge.sh status            Show current session status
+  bridge.sh log <type> [data] Log an event (data as JSON string)
+  bridge.sh recent [n]        Show recent N events (default 10)
+  bridge.sh checkpoint [note] Save a checkpoint event
+  bridge.sh task add <name>   Add an active task
+  bridge.sh task done <name>  Mark task as completed
+  bridge.sh touch <path> [act] Record a file touch (act: read/wrote/created)
+  bridge.sh decision <what> [why] Log a decision
+  bridge.sh bookmark save <n> Save context as bookmark
+  bridge.sh bookmark restore <n> Restore context from bookmark
+  bridge.sh bookmark list     List saved bookmarks
+  bridge.sh bookmark delete <n> Delete a bookmark
+
+EXAMPLES:
+  bridge.sh init "Working on logging module"
+  bridge.sh log task_start '{"task":"implement log.sh"}'
+  bridge.sh decision "Use JSONL" "Zero dependencies"
+  bridge.sh touch src/main.py created
+  bridge.sh recent 5
+  bridge.sh bookmark save pre-refactor
+HELP
+}
+
+# --- Main dispatcher ---
+main() {
+    local cmd="${1:-help}"
+    shift 2>/dev/null || true
+
+    case "${cmd}" in
+        init)
+            sb_require_jq
+            local summary="${1:-Session initialized}"
+            local session_id
+            session_id=$(sb_init_context "${summary}")
+            sb_log session_start "{\"reason\":\"init\",\"summary\":\"${summary}\"}" "${session_id}"
+            echo "SessionBridge initialized."
+            echo "Session ID: ${session_id}"
+            ;;
+
+        status)
+            sb_require_jq
+            sb_status
+            ;;
+
+        log)
+            if [ $# -lt 1 ]; then
+                echo "Usage: bridge.sh log <event_type> [json_data]" >&2
+                exit 1
+            fi
+            local event_type="$1"
+            local data="${2:-}"
+            [ -z "$data" ] && data='{}'
+            sb_log "${event_type}" "${data}"
+            ;;
+
+        recent)
+            local count="${1:-10}"
+            sb_recent "${count}"
+            ;;
+
+        checkpoint)
+            local note="${1:-checkpoint}"
+            sb_log checkpoint "{\"note\":\"${note}\"}"
+            echo "Checkpoint logged."
+            ;;
+
+        task)
+            local sub="${1:-}"
+            shift || true
+            case "${sub}" in
+                add)   sb_require_jq; sb_add_task "${1:-unnamed}"; echo "Task added: ${1:-unnamed}" ;;
+                done)  sb_require_jq; sb_complete_task "${1:-unnamed}"; echo "Task completed: ${1:-unnamed}" ;;
+                *)     echo "Usage: bridge.sh task <add|done> <name>" >&2; exit 1 ;;
+            esac
+            ;;
+
+        touch)
+            local path="${1:-}"
+            local action="${2:-touched}"
+            if [ -z "$path" ]; then
+                echo "Usage: bridge.sh touch <path> [action]" >&2
+                exit 1
+            fi
+            sb_require_jq
+            sb_touch_file "${path}" "${action}"
+            echo "Logged: ${action} ${path}"
+            ;;
+
+        decision)
+            local what="${1:-}"
+            local why="${2:-}"
+            if [ -z "$what" ]; then
+                echo "Usage: bridge.sh decision <what> [why]" >&2
+                exit 1
+            fi
+            sb_require_jq
+            sb_add_decision "${what}" "${why}"
+            echo "Decision logged: ${what}"
+            ;;
+
+        bookmark)
+            local sub="${1:-}"
+            shift || true
+            sb_require_jq
+            case "${sub}" in
+                save)    sb_bookmark_save "${1:-}";;
+                restore) sb_bookmark_restore "${1:-}";;
+                list)    sb_bookmark_list;;
+                delete)  sb_bookmark_delete "${1:-}";;
+                *)       echo "Usage: bridge.sh bookmark <save|restore|list|delete> [name]" >&2; exit 1 ;;
+            esac
+            ;;
+
+        help|--help|-h)
+            show_help
+            ;;
+
+        *)
+            echo "Unknown command: ${cmd}" >&2
+            echo "Run 'bridge.sh help' for usage." >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
