@@ -8,7 +8,9 @@
     "test": "test"
   },
   "scripts": {
-    "test": "bash test/run_tests.sh",
+    "test": "bash test/run_tests.sh && bash test/test_mcp_server.sh",
+    "test:core": "bash test/run_tests.sh",
+    "test:mcp": "bash test/test_mcp_server.sh",
     "start": "node mcp-server.js",
     "start:sse": "node mcp-server.js --port"
   },

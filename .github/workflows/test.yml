@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  core-tests:
+    name: Core Test Suite
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,5 +16,26 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
 
-      - name: Run tests
+      - name: Run core tests
         run: bash test/run_tests.sh
+
+  mcp-tests:
+    name: MCP Server Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run MCP server tests
+        run: bash test/test_mcp_server.sh
