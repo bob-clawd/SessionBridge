@@ -240,6 +240,48 @@ test_summary() {
     teardown
 }
 
+test_tag_log_with_tags() {
+    setup
+    "$BRIDGE" init "Tag test" >/dev/null 2>&1
+    "$BRIDGE" log task_start '{"task":"Build X"}' --tag feature backend >/dev/null 2>&1
+    # Verify tag stored in event
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="task_start" and (.data.tags | index("feature")) and (.data.tags | index("backend")))' >/dev/null 2>&1 || { echo "Tags not stored in event"; teardown; return 1; }
+    teardown
+}
+
+test_tag_list() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+    "$BRIDGE" log event1 '{}' --tag alpha >/dev/null 2>&1
+    "$BRIDGE" log event2 '{}' --tag beta >/dev/null 2>&1
+    "$BRIDGE" log event3 '{}' --tag alpha >/dev/null 2>&1
+    local output
+    output=$("$BRIDGE" tag list 2>&1)
+    echo "$output" | grep -q "#alpha" || { echo "Tag list missing alpha"; teardown; return 1; }
+    echo "$output" | grep -q "#beta" || { echo "Tag list missing beta"; teardown; return 1; }
+    teardown
+}
+
+test_tag_show() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+    "$BRIDGE" log event1 '{"msg":"first"}' --tag mytag >/dev/null 2>&1
+    "$BRIDGE" log event2 '{"msg":"second"}' --tag other >/dev/null 2>&1
+    local output
+    output=$("$BRIDGE" tag show mytag 2>&1)
+    echo "$output" | grep -q "first" || { echo "Tag show missing tagged event"; teardown; return 1; }
+    echo "$output" | grep -q "second" && { echo "Tag show included non-tagged event"; teardown; return 1; }
+    teardown
+}
+
+test_tag_log_without_data() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+    "$BRIDGE" log bare_event --tag solo >/dev/null 2>&1
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="bare_event" and (.data.tags | index("solo")))' >/dev/null 2>&1 || { echo "Tag not stored with empty data"; teardown; return 1; }
+    teardown
+}
+
 test_auto_gc_on_init() {
     setup
     "$BRIDGE" init "Pre-gc" >/dev/null 2>&1
@@ -296,6 +338,10 @@ run_test "env task variables" test_env_task_vars
 run_test "gc removes old events" test_gc_removes_old_events
 run_test "gc noop under limit" test_gc_noop_when_under_limit
 run_test "summary report" test_summary
+run_test "tag: log with --tag" test_tag_log_with_tags
+run_test "tag: tag list" test_tag_list
+run_test "tag: tag show" test_tag_show
+run_test "tag: log without data" test_tag_log_without_data
 run_test "auto-gc on init" test_auto_gc_on_init
 
 echo ""

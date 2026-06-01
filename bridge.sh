@@ -14,6 +14,7 @@ source "${SCRIPT_DIR}/lib/log.sh"
 source "${SCRIPT_DIR}/lib/context.sh"
 source "${SCRIPT_DIR}/lib/bookmarks.sh"
 source "${SCRIPT_DIR}/lib/diff.sh"
+source "${SCRIPT_DIR}/lib/tags.sh"
 
 # --- Help ---
 show_help() {
@@ -34,6 +35,8 @@ USAGE:
   bridge.sh task done <name>  Mark task as completed
   bridge.sh touch <path> [act] Record a file touch (act: read/wrote/created)
   bridge.sh decision <what> [why] Log a decision
+  bridge.sh tag list             List known tags with counts
+  bridge.sh tag show <tag>       Show events by tag
   bridge.sh bookmark save <n> Save context as bookmark
   bridge.sh bookmark restore <n> Restore context from bookmark
   bridge.sh bookmark list     List saved bookmarks
@@ -104,13 +107,53 @@ main() {
 
         log)
             if [ $# -lt 1 ]; then
-                echo "Usage: bridge.sh log <event_type> [json_data]" >&2
+                echo "Usage: bridge.sh log <event_type> [json_data] [--tag tag1 tag2...]" >&2
                 exit 1
             fi
             local event_type="$1"
-            local data="${2:-}"
+            shift
+            local data=""
+            local tags=()
+            local consuming_tags=0
+            for arg in "$@"; do
+                if [ "$arg" = "--tag" ]; then
+                    consuming_tags=1
+                elif [ $consuming_tags -eq 1 ]; then
+                    tags+=("$arg")
+                elif [ -z "$data" ]; then
+                    data="$arg"
+                fi
+            done
             [ -z "$data" ] && data='{}'
+            if [ ${#tags[@]} -gt 0 ]; then
+                local tags_json
+                tags_json=$(printf '%s\n' "${tags[@]}" | jq -R . | jq -s .)
+                data=$(echo "$data" | jq --argjson newtags "$tags_json" '.tags = (.tags // []) + $newtags | .tags |= unique' 2>/dev/null || echo "$data")
+            fi
             sb_log "${event_type}" "${data}"
+            ;;
+
+        tag)
+            local sub="${1:-}"
+            shift 2>/dev/null || true
+            sb_require_jq
+            case "${sub}" in
+                list)
+                    sb_tag_list
+                    ;;
+                show)
+                    local tag_name="${1:-}"
+                    local tag_count="${2:-20}"
+                    if [ -z "$tag_name" ]; then
+                        echo "Usage: bridge.sh tag show <tag> [count]" >&2
+                        exit 1
+                    fi
+                    sb_tag_show "${tag_name}" "${tag_count}"
+                    ;;
+                *)
+                    echo "Usage: bridge.sh tag <list|show>" >&2
+                    exit 1
+            esac
             ;;
 
         recent)

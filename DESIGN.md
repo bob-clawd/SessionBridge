@@ -94,6 +94,17 @@ SB_GC_KEEP=500 ./bridge.sh init "My session"
 ./bridge.sh log decision '{"what":"Use JSONL","why":"simple"}'
 ./bridge.sh log file_touch '{"path":"DESIGN.md","action":"created"}'
 
+# Log an event with tags
+./bridge.sh log task_start '{"task":"Integrate DB"}' --tag database feature
+./bridge.sh log decision '{"what":"Use JSONL"}' --tag arch
+
+# List all tags with counts
+./bridge.sh tag list
+
+# Show events for a specific tag
+./bridge.sh tag show database
+./bridge.sh tag show database 5   # last 5
+
 # Show status (context + recent events)
 ./bridge.sh status
 
@@ -201,7 +212,7 @@ Useful as an agent's entry point to quickly understand where it left off.
 
 ## Future Ideas
 
-- `bridge.sh tags` — tag-based filtering of events
+- ✅ `bridge.sh tags` — tag-based filtering of events (v1.5)
 - Auto-checkpoint on long idle
 - Automatic summary on session end
 - `bridge.sh merge` — merge events from multiple sessions
