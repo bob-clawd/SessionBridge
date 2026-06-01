@@ -81,7 +81,7 @@ function shellEscape(str) {
 // ── MCP Server ─────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'sessionbridge-mcp', version: '1.14.0' },
+  { name: 'sessionbridge-mcp', version: '1.15.0' },
   { capabilities: { tools: {}, resources: {}, prompts: {} } }
 );
 
@@ -434,6 +434,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
+    {
+      name: 'sb_export',
+      description: 'Export session log as a Markdown report (human-readable summary)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          output: { type: 'string', description: 'Output file path (optional, prints to stdout if omitted)' },
+        },
+      },
+    },
+    {
+      name: 'sb_export_json',
+      description: 'Export session log as a JSON dump',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          output: { type: 'string', description: 'Output file path (optional, prints to stdout if omitted)' },
+        },
+      },
+    },
   ],
 }));
 
@@ -550,6 +570,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (!isInitialized()) return { content: [{ type: 'text', text: 'SessionBridge not initialized.' }] };
       const keep = args?.keep || 500;
       const result = runBridge(`gc ${keep}`);
+      return { content: [{ type: 'text', text: result.ok ? result.stdout : `Error: ${result.stderr}` }] };
+    }
+
+    case 'sb_export': {
+      if (!isInitialized()) return { content: [{ type: 'text', text: 'SessionBridge not initialized.' }] };
+      const outFile = args?.output ? shellEscape(args.output) : '';
+      const result = runBridge(`export ${outFile}`);
+      return { content: [{ type: 'text', text: result.ok ? result.stdout : `Error: ${result.stderr}` }] };
+    }
+
+    case 'sb_export_json': {
+      if (!isInitialized()) return { content: [{ type: 'text', text: 'SessionBridge not initialized.' }] };
+      const jOutFile = args?.output ? shellEscape(args.output) : '';
+      const result = runBridge(`export-json ${jOutFile}`);
       return { content: [{ type: 'text', text: result.ok ? result.stdout : `Error: ${result.stderr}` }] };
     }
 

@@ -300,9 +300,10 @@ MCP Agent ←→ MCP Stdio/SSE ←→ mcp-server.js ←exec→ bridge.sh ←→ 
 
 ### Exposed Components
 
-**Tools (17):** sb_init, sb_status, sb_summary, sb_log, sb_heartbeat,
+**Tools (19):** sb_init, sb_status, sb_summary, sb_log, sb_heartbeat,
 sb_recent, sb_task_add, sb_task_done, sb_decision, sb_touch,
-sb_bookmark_{save,restore,list,delete}, sb_tag_list, sb_gc
+sb_bookmark_{save,restore,list,delete}, sb_tag_list, sb_gc,
+sb_export, sb_export_json
 
 **Resources (4):** sessionbridge://context, sessionbridge://recent/10,
 sessionbridge://recent/50, sessionbridge://events
@@ -344,9 +345,21 @@ sessionbridge://recent/50, sessionbridge://events
   to stream the entire events.jsonl via MCP for agent consumption.
 - **Session tags on init** — Allow `bridge.sh init "Summary" --tag foo bar` to
   tag the entire session for later filtering.
+- **Session tags on init** — Allow `bridge.sh init "Summary" --tag foo bar` to
+  tag the entire session for later filtering.
 - **Auto-expire stale sessions in GC** — When running GC, also clean up stale
   context.json / bookmarks for sessions older than N days.
+- **Merged session dashboard** — After `bridge.sh merge`, show a side-by-side
+  timeline of events from both source sessions for visual comparison.
 
 ## Completed (v1.14)
 
 - ✅ `sessionbridge://events` resource — full event log via MCP (v1.14)
+
+## Completed (v1.15)
+
+- ✅ **sb_export** — Export session log as Markdown report (human-readable
+  summary with overview table, tasks, decisions, files, full event log)
+- ✅ **sb_export_json** — Export session log as JSON dump (machine-friendly)
+- ✅ **MCP tools** — `sb_export` and `sb_export_json` in MCP server
+- ✅ **Test suite erweitert** — 54 Tests (35 core + 19 MCP, 0 failures)

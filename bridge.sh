@@ -16,6 +16,7 @@ source "${SCRIPT_DIR}/lib/bookmarks.sh"
 source "${SCRIPT_DIR}/lib/diff.sh"
 source "${SCRIPT_DIR}/lib/tags.sh"
 source "${SCRIPT_DIR}/lib/merge.sh"
+source "${SCRIPT_DIR}/lib/export.sh"
 
 # --- Help ---
 show_help() {
@@ -34,6 +35,8 @@ USAGE:
   bridge.sh recent [n]        Show recent N events (default 10)
   bridge.sh diff <bookmark>   Compare current context with a saved bookmark
   bridge.sh gc [keep]         Garbage-collect events, keep last N (default 500)
+  bridge.sh export [file]     Export session as Markdown report
+  bridge.sh export-json [file] Export session as JSON dump
   bridge.sh checkpoint [note] Save a checkpoint event
   bridge.sh task add <name>   Add an active task
   bridge.sh task done <name>  Mark task as completed
@@ -265,6 +268,16 @@ main() {
         fi
         sb_require_jq
         sb_merge "$@"
+        ;;
+
+        export)
+        sb_require_jq
+        sb_export "${1:-}"
+        ;;
+
+        export-json)
+        sb_require_jq
+        sb_export_json "${1:-}"
         ;;
 
         help|--help|-h)

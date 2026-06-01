@@ -88,7 +88,7 @@ EOF
     resp=$(mcp_call "$req")
     
     assert_jq "$resp" '.id == 1' "Response id should be 1" || return 1
-    assert_jq "$resp" '.result.tools | length == 16' "Should list 16 tools" || return 1
+    assert_jq "$resp" '.result.tools | length == 18' "Should list 18 tools" || return 1
     assert_jq "$resp" '.result.tools[] | select(.name == "sb_init") | length > 0' "Should include sb_init" || return 1
     assert_jq "$resp" '.result.tools[] | select(.name == "sb_heartbeat") | length > 0' "Should include sb_heartbeat" || return 1
     assert_jq "$resp" '.result.tools[] | select(.name == "sb_bookmark_delete") | length > 0' "Should include sb_bookmark_delete" || return 1
@@ -395,12 +395,54 @@ EOF
     assert_contains "$resp" "SessionBridge" "Summary should have header" || return 1
 }
 
+
+test_export_via_mcp() {
+    _clean_sb
+    local req
+    req=$(cat <<'EOF'
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sb_init","arguments":{"summary":"MCP Export Test"}}}
+EOF
+)
+    mcp_call "$req" >/dev/null 2>&1 || true
+    
+    req=$(cat <<'EOF'
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sb_export","arguments":{}}}
+EOF
+)
+    local resp
+    resp=$(mcp_call "$req")
+    
+    assert_contains "$resp" "SessionBridge Export" "Export via MCP should include header" || return 1
+    assert_contains "$resp" "MCP Export Test" "Export via MCP should include session name" || return 1
+    assert_contains "$resp" "Event Log" "Export via MCP should include event log section" || return 1
+}
+
+test_export_json_via_mcp() {
+    _clean_sb
+    local req
+    req=$(cat <<'EOF'
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sb_init","arguments":{"summary":"MCP JSON Export"}}}
+EOF
+)
+    mcp_call "$req" >/dev/null 2>&1 || true
+    
+    req=$(cat <<'EOF'
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sb_export_json","arguments":{}}}
+EOF
+)
+    local resp
+    resp=$(mcp_call "$req")
+    
+    assert_jq "$resp" '.result.content[0].text | startswith("[")' "Export JSON via MCP should return JSON array" || return 1
+    assert_contains "$resp" "session_start" "Export JSON should contain session_start event" || return 1
+}
+
 # ── Run all tests ───────────────────────────────────────────────────────────
 
 echo "SessionBridge MCP Server Test Suite"
 echo "==================================="
 
-run_test "tools/list returns 16 tools" test_tools_list
+run_test "tools/list returns 18 tools" test_tools_list
 run_test "status before init returns error" test_status_before_init
 run_test "init via MCP" test_init_via_mcp
 run_test "init then status" test_init_then_status
@@ -412,7 +454,7 @@ run_test "touch via MCP" test_touch_via_mcp
 run_test "bookmarks via MCP (save/list/restore/delete)" test_bookmarks_via_mcp
 run_test "tag list via MCP" test_tag_list_via_mcp
 run_test "summary via MCP" test_summary_via_mcp
-run_test "resources/list returns 3 resources" test_resources_list
+run_test "resources/list returns 4 resources" test_resources_list
 run_test "prompts/list returns 2 prompts" test_prompts_list
 run_test "sb_log error before init" test_sb_log_error_before_init
 test_events_resource() {
@@ -447,6 +489,8 @@ EOF
 
 run_test "events resource via MCP" test_events_resource
 run_test "gc via MCP" test_gc_via_mcp
+run_test "export via MCP" test_export_via_mcp
+run_test "export JSON via MCP" test_export_json_via_mcp
 
 echo ""
 echo "========================"

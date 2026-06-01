@@ -471,6 +471,83 @@ test_autockpt_idle() {
     teardown
 }
 
+test_export_markdown() {
+    setup
+    "$BRIDGE" init "Export test" >/dev/null 2>&1
+    "$BRIDGE" task add "Task A" >/dev/null 2>&1
+    "$BRIDGE" task done "Task A" >/dev/null 2>&1
+    "$BRIDGE" decision "Use JSONL" "Simple format" >/dev/null 2>&1
+    "$BRIDGE" touch src/main.py created >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" export 2>&1)
+
+    # Should be Markdown
+    echo "$output" | grep -q "SessionBridge Export" || { echo "Export missing header"; teardown; return 1; }
+    echo "$output" | grep -q "Export test" || { echo "Export missing session name"; teardown; return 1; }
+    echo "$output" | grep -q "| Session ID" || { echo "Export missing table"; teardown; return 1; }
+    echo "$output" | grep -q "Use JSONL" || { echo "Export missing decision"; teardown; return 1; }
+    echo "$output" | grep -q "Task A" || { echo "Export missing task listing"; teardown; return 1; }
+    echo "$output" | grep -q "src/main.py" || { echo "Export missing file"; teardown; return 1; }
+    echo "$output" | grep -q "Event Log" || { echo "Export missing event log section"; teardown; return 1; }
+
+    teardown
+}
+
+test_export_markdown_to_file() {
+    setup
+    "$BRIDGE" init "File export test" >/dev/null 2>&1
+    "$BRIDGE" log custom '{"msg":"hello"}' >/dev/null 2>&1
+
+    local outfile="${TESTDIR}/export.md"
+    local output
+    output=$("$BRIDGE" export "$outfile" 2>&1)
+
+    echo "$output" | grep -q "Exported to:" || { echo "Missing file export message"; teardown; return 1; }
+    [ -f "$outfile" ] || { echo "Export file not created"; teardown; return 1; }
+    grep -q "SessionBridge Export" "$outfile" || { echo "Export file wrong content"; teardown; return 1; }
+
+    teardown
+}
+
+test_export_json() {
+    setup
+    "$BRIDGE" init "JSON export" >/dev/null 2>&1
+    "$BRIDGE" log custom '{"msg":"hello"}' >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" export-json 2>&1)
+
+    # Should be valid JSON array
+    echo "$output" | jq -e 'type == "array"' >/dev/null 2>&1 || { echo "Export JSON not array"; teardown; return 1; }
+    echo "$output" | jq -e 'length == 2' >/dev/null 2>&1 || { echo "Export JSON wrong length"; teardown; return 1; }
+    echo "$output" | jq -e '.[1].e == "custom"' >/dev/null 2>&1 || { echo "Export JSON missing event"; teardown; return 1; }
+
+    teardown
+}
+
+test_export_json_to_file() {
+    setup
+    "$BRIDGE" init "JSON file export" >/dev/null 2>&1
+
+    local outfile="${TESTDIR}/export.json"
+    local output
+    output=$("$BRIDGE" export-json "$outfile" 2>&1)
+
+    echo "$output" | grep -q "Exported JSON to:" || { echo "Missing JSON export message"; teardown; return 1; }
+    [ -f "$outfile" ] || { echo "JSON export file not created"; teardown; return 1; }
+
+    teardown
+}
+
+test_export_no_init() {
+    setup
+    local output
+    output=$("$BRIDGE" export 2>&1 || true)
+    echo "$output" | grep -qi "not initialized" || { echo "Should fail without init"; teardown; return 1; }
+    teardown
+}
+
 test_autockpt_not_idle() {
     setup
     "$BRIDGE" init "Not idle" >/dev/null 2>&1
@@ -538,6 +615,11 @@ run_test "session end with reason" test_session_end_with_reason
 run_test "heartbeat" test_heartbeat
 run_test "auto-checkpoint (idle)" test_autockpt_idle
 run_test "auto-checkpoint (not idle)" test_autockpt_not_idle
+run_test "export: Markdown to stdout" test_export_markdown
+run_test "export: Markdown to file" test_export_markdown_to_file
+run_test "export: JSON output" test_export_json
+run_test "export: JSON to file" test_export_json_to_file
+run_test "export: fails without init" test_export_no_init
 
 echo ""
 echo "========================"
