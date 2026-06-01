@@ -13,6 +13,7 @@ source "${SCRIPT_DIR}/lib/utils.sh"
 source "${SCRIPT_DIR}/lib/log.sh"
 source "${SCRIPT_DIR}/lib/context.sh"
 source "${SCRIPT_DIR}/lib/bookmarks.sh"
+source "${SCRIPT_DIR}/lib/diff.sh"
 
 # --- Help ---
 show_help() {
@@ -26,6 +27,7 @@ USAGE:
   bridge.sh env               Emit shell env vars (source via: source <(bridge.sh env))
   bridge.sh log <type> [data] Log an event (data as JSON string)
   bridge.sh recent [n]        Show recent N events (default 10)
+  bridge.sh diff <bookmark>   Compare current context with a saved bookmark
   bridge.sh gc [keep]         Garbage-collect events, keep last N (default 500)
   bridge.sh checkpoint [note] Save a checkpoint event
   bridge.sh task add <name>   Add an active task
@@ -44,6 +46,7 @@ EXAMPLES:
   bridge.sh touch src/main.py created
   bridge.sh recent 5
   bridge.sh bookmark save pre-refactor
+  bridge.sh diff pre-refactor
 
 SOURCE INTO AGENT (bash/zsh):
   source <(bridge.sh env)
@@ -113,6 +116,16 @@ main() {
         recent)
             local count="${1:-10}"
             sb_recent "${count}"
+            ;;
+
+        diff)
+            sb_require_jq
+            local name="${1:-}"
+            if [ -z "$name" ]; then
+                echo "Usage: bridge.sh diff <bookmark_name>" >&2
+                exit 1
+            fi
+            sb_diff "${name}"
             ;;
 
         gc)

@@ -13,6 +13,7 @@ session-bridge/
 │   ├── log.sh         # Event logging
 │   ├── context.sh     # Active context management
 │   ├── bookmarks.sh   # Bookmark save/restore
+│   ├── diff.sh        # Context diff against bookmarks
 │   └── utils.sh       # Shared helpers
 ├── DESIGN.md          # This file
 ├── README.md          # Project intro
@@ -116,6 +117,9 @@ source <(./bridge.sh env)
 
 # List bookmarks
 ./bridge.sh bookmark list
+
+# Diff current context against a bookmark
+./bridge.sh diff pre-refactor
 ```
 
 ## Agent Integration (`bridge.sh env`)
@@ -197,7 +201,7 @@ Useful as an agent's entry point to quickly understand where it left off.
 
 ## Future Ideas
 
-- `bridge.sh diff` — compare current context with last bookmark
 - `bridge.sh tags` — tag-based filtering of events
 - Auto-checkpoint on long idle
 - Automatic summary on session end
+- `bridge.sh merge` — merge events from multiple sessions
