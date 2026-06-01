@@ -57,6 +57,7 @@ Fields:
 |------|------|-------------|
 | `session_start` | Agent session begins | `{ "reason": "cron" }` |
 | `session_end` | Agent session ends | `{ "reason": "complete" }` |
+| `heartbeat` | Periodic liveness check | `{ "events": 42, "active_tasks": 2, "summary": "Working on X" }` |
 | `task_start` | Starting a task | `{ "task": "Implement X" }` |
 | `task_end` | Task completed | `{ "task": "Implement X", "result": "done" }` |
 | `decision` | Architectural decision | `{ "what": "Use JSONL not SQLite", "why": "simplicity" }` |
@@ -133,6 +134,15 @@ source <(./bridge.sh env)
 ./bridge.sh diff pre-refactor
 ```
 
+```bash
+# End a session with summary
+./bridge.sh end
+./bridge.sh end "timeout"          # custom reason
+
+# Log a heartbeat event
+./bridge.sh heartbeat              # logs event + prints status line
+```
+
 ## Agent Integration (`bridge.sh env`)
 
 Source the env output to import session state as shell variables:
@@ -193,6 +203,41 @@ state, including:
 
 Useful as an agent's entry point to quickly understand where it left off.
 
+## Session End (`bridge.sh end`)
+
+End the current session, log a `session_end` event, and print a full summary report:
+
+```bash
+./bridge.sh end                    # logs session_end with reason "completed"
+./bridge.sh end "timeout"          # logs session_end with custom reason
+./bridge.sh end "shutdown"         # logs session_end with reason "shutdown"
+```
+
+The `end` command:
+1. Logs a `session_end` event with the specified reason
+2. Prints the full summary report (same as `bridge.sh summary`)
+3. Useful in cron jobs, shutdown hooks, or agent termination flows
+
+## Heartbeat Logging (`bridge.sh heartbeat`)
+
+Log a periodic heartbeat event with current session status. Designed for
+cron or periodic monitoring integration:
+
+```bash
+./bridge.sh heartbeat
+# Output: Heartbeat: 42 events, 2 active tasks — Working on feature X
+```
+
+The heartbeat event includes:
+- `events` — total event count in the log
+- `active_tasks` — number of currently active tasks
+- `summary` — the session summary string
+
+Useful for:
+- Cron jobs that periodically log session liveness
+- Heartbeat/file monitoring integrations
+- Long-running session health checks
+
 ## Session Recovery Flow
 
 1. Agent starts → checks for `.session-bridge/`
@@ -213,6 +258,8 @@ Useful as an agent's entry point to quickly understand where it left off.
 ## Future Ideas
 
 - ✅ `bridge.sh tags` — tag-based filtering of events (v1.5)
+- ✅ `bridge.sh merge` — merge events from multiple sessions (v1.6)
+- ✅ `bridge.sh end` — session end with automatic summary (v1.7)
+- ✅ `bridge.sh heartbeat` — periodic liveness heartbeat (v1.7)
 - Auto-checkpoint on long idle
-- Automatic summary on session end
-- `bridge.sh merge` — merge events from multiple sessions
+- SessionBridge MCP server for agent-native integration

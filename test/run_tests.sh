@@ -388,6 +388,57 @@ test_auto_gc_on_init() {
     teardown
 }
 
+test_session_end() {
+    setup
+    "$BRIDGE" init "End test" >/dev/null 2>&1
+    "$BRIDGE" task add "Task A" >/dev/null 2>&1
+    "$BRIDGE" decision "Use JSONL" "Simple" >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" end 2>&1)
+
+    # Should have logged session_end
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="session_end" and .data.reason=="completed")' >/dev/null 2>&1 || { echo "session_end event missing"; teardown; return 1; }
+
+    # Output should include summary
+    echo "$output" | grep -q "Session ended" || { echo "Missing end message"; teardown; return 1; }
+    echo "$output" | grep -q "End test" || { echo "Missing session name in summary"; teardown; return 1; }
+
+    teardown
+}
+
+test_session_end_with_reason() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+    "$BRIDGE" end "timeout" >/dev/null 2>&1
+
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="session_end" and .data.reason=="timeout")' >/dev/null 2>&1 || { echo "session_end with reason missing"; teardown; return 1; }
+
+    teardown
+}
+
+test_heartbeat() {
+    setup
+    "$BRIDGE" init "Heartbeat test" >/dev/null 2>&1
+    "$BRIDGE" task add "Ongoing task" >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" heartbeat 2>&1)
+
+    # Should have logged heartbeat event
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="heartbeat")' >/dev/null 2>&1 || { echo "heartbeat event missing"; teardown; return 1; }
+
+    # Verify event contains event count, task count, and summary
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="heartbeat" and (.data.events | type=="number") and (.data.active_tasks | type=="number") and (.data.summary | type=="string"))' >/dev/null 2>&1 || { echo "heartbeat data incomplete"; teardown; return 1; }
+
+    # Output should mention count
+    echo "$output" | grep -q "Heartbeat" || { echo "Missing heartbeat output"; teardown; return 1; }
+    echo "$output" | grep -q "1 active tasks" || { echo "Missing task count in heartbeat"; teardown; return 1; }
+    echo "$output" | grep -q "Heartbeat test" || { echo "Missing session summary in heartbeat"; teardown; return 1; }
+
+    teardown
+}
+
 test_multiple_sessions() {
     setup
     "$BRIDGE" init "Session 1" >/dev/null 2>&1
@@ -434,6 +485,9 @@ run_test "merge empty source" test_merge_empty_source
 run_test "merge no init" test_merge_no_init
 run_test "merge missing source" test_merge_missing_source
 run_test "auto-gc on init" test_auto_gc_on_init
+run_test "session end" test_session_end
+run_test "session end with reason" test_session_end_with_reason
+run_test "heartbeat" test_heartbeat
 
 echo ""
 echo "========================"

@@ -27,6 +27,8 @@ USAGE:
   bridge.sh status            Show current session status
   bridge.sh summary           Show a comprehensive session summary with stats
   bridge.sh env               Emit shell env vars (source via: source <(bridge.sh env))
+  bridge.sh end [reason]      End session with automatic summary
+  bridge.sh heartbeat          Log a heartbeat event (for cron/periodic use)
   bridge.sh log <type> [data] Log an event (data as JSON string)
   bridge.sh recent [n]        Show recent N events (default 10)
   bridge.sh diff <bookmark>   Compare current context with a saved bookmark
@@ -65,6 +67,10 @@ AUTO-GC:
 
 MERGE:
   bridge.sh merge <dir> [--skip-dupes]   Merge events from another session directory
+
+SESSION LIFECYCLE:
+  bridge.sh end [reason]                 End session with summary
+  bridge.sh heartbeat                    Log a periodic heartbeat event
 HELP
 }
 
@@ -232,6 +238,17 @@ main() {
                 *)       echo "Usage: bridge.sh bookmark <save|restore|list|delete> [name]" >&2; exit 1 ;;
             esac
             ;;
+
+        end)
+        sb_require_jq
+        local reason="${1:-completed}"
+        sb_session_end "${reason}"
+        ;;
+
+        heartbeat)
+        sb_require_jq
+        sb_heartbeat
+        ;;
 
         merge)
         if [ $# -lt 1 ]; then

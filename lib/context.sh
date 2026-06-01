@@ -194,6 +194,37 @@ sb_status() {
 
 # Generate a comprehensive natural-language session summary
 # Usage: sb_summary_report
+# End the current session with an automatic summary
+# Usage: sb_session_end [reason]
+sb_session_end() {
+    local reason="${1:-completed}"
+    sb_log session_end "$(jq -n --arg reason "$reason" '{"reason":$reason}')"
+    echo "Session ended: ${reason}"
+    echo ""
+    sb_summary_report
+}
+
+# Log a heartbeat event with session status
+# Usage: sb_heartbeat
+sb_heartbeat() {
+    local ctx
+    ctx=$(sb_read_context)
+    local event_count task_count summary_val
+    event_count=$(sb_event_count)
+    task_count=$(echo "$ctx" | jq -r '.active_tasks | length' 2>/dev/null || echo 0)
+    summary_val=$(echo "$ctx" | jq -r '.summary // ""')
+    
+    sb_log heartbeat "$(jq -n \
+        --argjson events "$event_count" \
+        --argjson tasks "$task_count" \
+        --arg summary "$summary_val" \
+        '{"events":$events,"active_tasks":$tasks,"summary":$summary}')"
+    
+    local sid
+    sid=$(echo "$ctx" | jq -r '.session_id // "unknown"')
+    echo "Heartbeat: ${event_count} events, ${task_count} active tasks — ${summary_val}"
+}
+
 sb_summary_report() {
     if ! sb_is_initialized; then
         echo "SessionBridge: NOT INITIALIZED"
