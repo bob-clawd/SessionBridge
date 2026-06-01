@@ -24,11 +24,13 @@ SessionBridge is a lightweight, file-based tool that persists agent session stat
 
 ## Status
 
-**v1.8 — Implemented and tested.** ✅
+**v1.12 — Stable, CI-grün, dogfooding aktiv.** ✅
 
-- **Bash CLI** — bridge.sh with 7 lib modules
-- **30 passing tests** covering all core features
-- **MCP Server** — agent-native integration via Model Context Protocol
+- **Bash CLI** — bridge.sh with 8 lib modules (tags, merge)
+- **Core Test Suite** — 30 Tests, all passing
+- **MCP Server** — 16 tools via JSON-RPC/stdio + SSE | 16 MCP tests, all passing
+- **CI** — GitHub Actions: 2 Jobs (core + MCP), 46 Tests total
+- **Cron Lifecycle** — `cron_entrypoint.sh` + `cron_exitpoint.sh` für SessionBridge im Hourly Project Work
 - **Ready for dogfooding** — deployed in personal OpenClaw workspace
 
 ## Quick Start
@@ -62,6 +64,18 @@ echo "$SB_ACTIVE_TASKS"
 
 SessionBridge is actively used by the author's OpenClaw workspace.
 The `integrate.sh` script wires it into agent session start/stop flow.
+
+### Cron Integration
+
+For the **Hourly Project Work** cron job, SessionBridge wraps the lifecycle:
+
+```bash
+# Before project work — init, heartbeat, autockpt, task add
+bash cron_entrypoint.sh
+
+# After project work — task done, heartbeat, end
+bash cron_exitpoint.sh
+```
 
 ## MCP Server
 

@@ -8,19 +8,24 @@ SessionBridge is a lightweight, file-based tool that persists agent session stat
 
 ```
 session-bridge/
-├── bridge.sh          # Main CLI entrypoint
+├── bridge.sh              # Main CLI entrypoint
+├── cron_entrypoint.sh     # Pre-work SessionBridge lifecycle (cron)
+├── cron_exitpoint.sh      # Post-work SessionBridge lifecycle (cron)  [v1.12]
+├── mcp-server.js          # MCP Server (stdio/SSE)                   [v1.9]
 ├── lib/
-│   ├── log.sh         # Event logging
-│   ├── context.sh     # Active context management
-│   ├── bookmarks.sh   # Bookmark save/restore
-│   ├── diff.sh        # Context diff against bookmarks
-│   └── utils.sh       # Shared helpers
-├── DESIGN.md          # This file
-├── README.md          # Project intro
-└── test/              # Tests
-    ├── test_log.sh
-    ├── test_context.sh
-    └── test_bookmarks.sh
+│   ├── log.sh             # Event logging
+│   ├── context.sh         # Active context management
+│   ├── bookmarks.sh       # Bookmark save/restore
+│   ├── diff.sh            # Context diff against bookmarks
+│   ├── tags.sh            # Tag-based event filtering
+│   ├── merge.sh           # Session event merging
+│   └── utils.sh           # Shared helpers
+├── DESIGN.md              # This file
+├── README.md              # Project intro
+├── package.json           # npm package (MCP server)
+└── test/                  # Tests
+    ├── run_tests.sh       # Core test suite (30 tests)
+    ├── test_mcp_server.sh # MCP server test suite (16 tests)
 ```
 
 ## Data Files (all under `.session-bridge/`)
