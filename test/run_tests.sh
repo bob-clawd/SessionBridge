@@ -282,6 +282,93 @@ test_tag_log_without_data() {
     teardown
 }
 
+test_merge_basic() {
+    setup
+    "$BRIDGE" init "Primary session" >/dev/null 2>&1
+    "$BRIDGE" log event1 '{"msg":"first"}' >/dev/null 2>&1
+    "$BRIDGE" log event2 '{"msg":"second"}' >/dev/null 2>&1
+
+    # Create a second session in a separate temp dir
+    local src_dir
+    src_dir=$(mktemp -d /tmp/sb-src-XXXXXX)
+    cd "$src_dir"
+    "$BRIDGE" init "Source session" >/dev/null 2>&1
+    "$BRIDGE" log src_event '{"msg":"from source"}' >/dev/null 2>&1
+    "$BRIDGE" task add "Source task" >/dev/null 2>&1
+
+    cd "$TESTDIR"
+    local before
+    before=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+
+    # merge expects the .session-bridge directory
+    "$BRIDGE" merge "${src_dir}/.session-bridge" >/dev/null 2>&1
+
+    local after
+    after=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    # Total = before + source + merge_event
+    [ "$after" -eq $((before + 3 + 1)) ] || { echo "Expected $((before + 3 + 1)) events after merge, got $after (before=$before)"; rm -rf "$src_dir"; teardown; return 1; }
+
+    # Verify source event is in the merged log
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="src_event")' >/dev/null 2>&1 || { echo "Source event not found"; rm -rf "$src_dir"; teardown; return 1; }
+
+    # Verify merge event was logged
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="session_merge")' >/dev/null 2>&1 || { echo "Merge event not logged"; rm -rf "$src_dir"; teardown; return 1; }
+
+    # Verify context was merged (source task should be present)
+    cat .session-bridge/context.json | jq -e '.active_tasks | index("Source task")' >/dev/null 2>&1 || { echo "Source task not merged into context"; rm -rf "$src_dir"; teardown; return 1; }
+
+    # Verify original events preserved
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="event1")' >/dev/null 2>&1 || { echo "Original event1 lost"; rm -rf "$src_dir"; teardown; return 1; }
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="event2")' >/dev/null 2>&1 || { echo "Original event2 lost"; rm -rf "$src_dir"; teardown; return 1; }
+
+    rm -rf "$src_dir"
+    teardown
+}
+
+test_merge_empty_source() {
+    setup
+    "$BRIDGE" init "Primary" >/dev/null 2>&1
+
+    # Create a temp dir with only init
+    local src_dir
+    src_dir=$(mktemp -d /tmp/sb-empty-XXXXXX)
+    cd "$src_dir"
+    "$BRIDGE" init "Empty source" >/dev/null 2>&1
+
+    cd "$TESTDIR"
+    local before
+    before=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    "$BRIDGE" merge "${src_dir}/.session-bridge" >/dev/null 2>&1
+    local after
+    after=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    # Total = before + 1 (source init) + 1 (merge_event)
+    [ "$after" -eq $((before + 2)) ] || { echo "Expected $((before + 2)) events after merge, got $after (before=$before)"; rm -rf "$src_dir"; teardown; return 1; }
+
+    # Verify merge event exists
+    cat .session-bridge/events.jsonl | jq -e 'select(.e=="session_merge")' >/dev/null 2>&1 || { echo "Merge event not logged"; rm -rf "$src_dir"; teardown; return 1; }
+
+    rm -rf "$src_dir"
+    teardown
+}
+
+test_merge_no_init() {
+    setup
+    # Try to merge without initializing
+    local output
+    output=$("$BRIDGE" merge /tmp/nonexistent 2>&1 || true)
+    echo "$output" | grep -qi "no active session" || { echo "Should fail without init"; teardown; return 1; }
+    teardown
+}
+
+test_merge_missing_source() {
+    setup
+    "$BRIDGE" init >/dev/null 2>&1
+    local output
+    output=$("$BRIDGE" merge /tmp/nonexistent 2>&1 || true)
+    echo "$output" | grep -qi "no events" || { echo "Should complain about missing source"; teardown; return 1; }
+    teardown
+}
+
 test_auto_gc_on_init() {
     setup
     "$BRIDGE" init "Pre-gc" >/dev/null 2>&1
@@ -342,6 +429,10 @@ run_test "tag: log with --tag" test_tag_log_with_tags
 run_test "tag: tag list" test_tag_list
 run_test "tag: tag show" test_tag_show
 run_test "tag: log without data" test_tag_log_without_data
+run_test "merge basic" test_merge_basic
+run_test "merge empty source" test_merge_empty_source
+run_test "merge no init" test_merge_no_init
+run_test "merge missing source" test_merge_missing_source
 run_test "auto-gc on init" test_auto_gc_on_init
 
 echo ""

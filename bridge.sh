@@ -15,6 +15,7 @@ source "${SCRIPT_DIR}/lib/context.sh"
 source "${SCRIPT_DIR}/lib/bookmarks.sh"
 source "${SCRIPT_DIR}/lib/diff.sh"
 source "${SCRIPT_DIR}/lib/tags.sh"
+source "${SCRIPT_DIR}/lib/merge.sh"
 
 # --- Help ---
 show_help() {
@@ -61,6 +62,9 @@ HOUSEKEEPING:
 
 AUTO-GC:
   SB_GC_KEEP=500 bridge.sh init "My session"   Auto-GC on init
+
+MERGE:
+  bridge.sh merge <dir> [--skip-dupes]   Merge events from another session directory
 HELP
 }
 
@@ -228,6 +232,15 @@ main() {
                 *)       echo "Usage: bridge.sh bookmark <save|restore|list|delete> [name]" >&2; exit 1 ;;
             esac
             ;;
+
+        merge)
+        if [ $# -lt 1 ]; then
+            echo "Usage: bridge.sh merge <source_dir> [--skip-dupes]" >&2
+            exit 1
+        fi
+        sb_require_jq
+        sb_merge "$@"
+        ;;
 
         help|--help|-h)
             show_help
