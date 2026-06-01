@@ -24,12 +24,13 @@ SessionBridge is a lightweight, file-based tool that persists agent session stat
 
 ## Status
 
-**v1.12 — Stable, CI-grün, dogfooding aktiv.** ✅
+**v1.14 — Stable, CI-grün, dogfooding aktiv.** ✅
 
 - **Bash CLI** — bridge.sh with 8 lib modules (tags, merge)
 - **Core Test Suite** — 30 Tests, all passing
-- **MCP Server** — 16 tools via JSON-RPC/stdio + SSE | 16 MCP tests, all passing
-- **CI** — GitHub Actions: 2 Jobs (core + MCP), 46 Tests total
+- **MCP Server** — 17 tools via JSON-RPC/stdio + SSE | 17 MCP tests, all passing
+- **MCP Events Resource** — `sessionbridge://events` streams full event log as NDJSON
+- **CI** — GitHub Actions: 2 Jobs (core + MCP), 47 Tests total
 - **Cron Lifecycle** — `cron_entrypoint.sh` + `cron_exitpoint.sh` für SessionBridge im Hourly Project Work
 - **Ready for dogfooding** — deployed in personal OpenClaw workspace
 
@@ -118,6 +119,7 @@ node mcp-server.js --port
 | `sessionbridge://context` | Current session context |
 | `sessionbridge://recent/10` | Last 10 events |
 | `sessionbridge://recent/50` | Last 50 events |
+| `sessionbridge://events` | Full event log (NDJSON) |
 
 ### MCP Prompts
 

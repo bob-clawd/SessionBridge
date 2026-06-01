@@ -304,8 +304,8 @@ MCP Agent ←→ MCP Stdio/SSE ←→ mcp-server.js ←exec→ bridge.sh ←→ 
 sb_recent, sb_task_add, sb_task_done, sb_decision, sb_touch,
 sb_bookmark_{save,restore,list,delete}, sb_tag_list, sb_gc
 
-**Resources (3):** sessionbridge://context, sessionbridge://recent/10,
-sessionbridge://recent/50
+**Resources (4):** sessionbridge://context, sessionbridge://recent/10,
+sessionbridge://recent/50, sessionbridge://events
 
 **Prompts (2):** session_recovery, activity_report
 
@@ -346,3 +346,7 @@ sessionbridge://recent/50
   tag the entire session for later filtering.
 - **Auto-expire stale sessions in GC** — When running GC, also clean up stale
   context.json / bookmarks for sessions older than N days.
+
+## Completed (v1.14)
+
+- ✅ `sessionbridge://events` resource — full event log via MCP (v1.14)

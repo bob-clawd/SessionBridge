@@ -81,7 +81,7 @@ function shellEscape(str) {
 // ── MCP Server ─────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'sessionbridge-mcp', version: '1.8.0' },
+  { name: 'sessionbridge-mcp', version: '1.14.0' },
   { capabilities: { tools: {}, resources: {}, prompts: {} } }
 );
 
@@ -107,6 +107,12 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => ({
       description: 'Last 50 events from the event log',
       mimeType: 'application/json',
     },
+    {
+      uri: 'sessionbridge://events',
+      name: 'Full Event Log',
+      description: 'Complete events.jsonl log (newline-delimited JSON)',
+      mimeType: 'application/x-ndjson',
+    },
   ],
 }));
 
@@ -131,6 +137,21 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     return {
       contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(getEvents(n), null, 2) }],
     };
+  }
+
+  if (uri === 'sessionbridge://events') {
+    if (!isInitialized()) {
+      throw new Error('SessionBridge not initialized. Call sb_init first.');
+    }
+    const evtFile = path.join(SESSION_DIR, 'events.jsonl');
+    try {
+      const text = fs.readFileSync(evtFile, 'utf-8');
+      return {
+        contents: [{ uri, mimeType: 'application/x-ndjson', text }],
+      };
+    } catch {
+      throw new Error('Could not read events.jsonl');
+    }
   }
 
   throw new Error(`Unknown resource: ${uri}`);

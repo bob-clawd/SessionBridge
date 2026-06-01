@@ -299,10 +299,11 @@ EOF
     local resp
     resp=$(mcp_call "$req")
     
-    assert_jq "$resp" '.result.resources | length == 3' "Should list 3 resources" || return 1
+    assert_jq "$resp" '.result.resources | length == 4' "Should list 4 resources" || return 1
     assert_jq "$resp" '.result.resources[] | select(.uri == "sessionbridge://context") | length > 0' "Should include context resource" || return 1
     assert_jq "$resp" '.result.resources[] | select(.uri == "sessionbridge://recent/10") | length > 0' "Should include recent/10 resource" || return 1
     assert_jq "$resp" '.result.resources[] | select(.uri == "sessionbridge://recent/50") | length > 0' "Should include recent/50 resource" || return 1
+    assert_jq "$resp" '.result.resources[] | select(.uri == "sessionbridge://events") | length > 0' "Should include events resource" || return 1
 }
 
 test_prompts_list() {
@@ -414,6 +415,37 @@ run_test "summary via MCP" test_summary_via_mcp
 run_test "resources/list returns 3 resources" test_resources_list
 run_test "prompts/list returns 2 prompts" test_prompts_list
 run_test "sb_log error before init" test_sb_log_error_before_init
+test_events_resource() {
+    _clean_sb
+    local req
+    req=$(cat <<'EOF'
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sb_init","arguments":{"summary":"Events Resource Test"}}}
+EOF
+)
+    mcp_call "$req" >/dev/null 2>&1 || true
+    
+    for i in 1 2 3; do
+        req=$(cat <<EOF
+{"jsonrpc":"2.0","id":$((i+1)),"method":"tools/call","params":{"name":"sb_log","arguments":{"event_type":"evt$i","data":"{\"n\":$i}"}}}
+EOF
+)
+        mcp_call "$req" >/dev/null 2>&1 || true
+    done
+    
+    req=$(cat <<'EOF'
+{"jsonrpc":"2.0","id":10,"method":"resources/read","params":{"uri":"sessionbridge://events"}}
+EOF
+)
+    local resp
+    resp=$(mcp_call "$req")
+    
+    assert_contains "$resp" "evt1" "Events resource should contain evt1" || return 1
+    assert_contains "$resp" "evt2" "Events resource should contain evt2" || return 1
+    assert_contains "$resp" "evt3" "Events resource should contain evt3" || return 1
+    assert_jq "$resp" '.result.contents[0].mimeType == "application/x-ndjson"' "Events resource should have ndjson mime type" || return 1
+}
+
+run_test "events resource via MCP" test_events_resource
 run_test "gc via MCP" test_gc_via_mcp
 
 echo ""
