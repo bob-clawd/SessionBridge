@@ -191,3 +191,120 @@ sb_status() {
     echo "Total events:      ${event_count}"
     echo ""
 }
+
+# Generate a comprehensive natural-language session summary
+# Usage: sb_summary_report
+sb_summary_report() {
+    if ! sb_is_initialized; then
+        echo "SessionBridge: NOT INITIALIZED"
+        echo "Run: bridge.sh init to start tracking"
+        return
+    fi
+
+    local ctx
+    ctx=$(sb_read_context)
+
+    local sid started summary
+    sid=$(echo "$ctx" | jq -r '.session_id // "unknown"')
+    started=$(echo "$ctx" | jq -r '.started_at // "unknown"')
+    summary=$(echo "$ctx" | jq -r '.summary // "(no description)"')
+
+    local active_count completed_count decision_count file_count event_count
+    active_count=$(echo "$ctx" | jq -r '.active_tasks | length' 2>/dev/null)
+    completed_count=$(echo "$ctx" | jq -r '.completed_tasks | length' 2>/dev/null)
+    decision_count=$(echo "$ctx" | jq -r '.recent_decisions | length' 2>/dev/null)
+    file_count=$(echo "$ctx" | jq -r '.recent_files | length' 2>/dev/null)
+    event_count=$(sb_event_count)
+
+    local bookmark_count=0
+    if [ -d "${BOOKMARKS_DIR}" ]; then
+        # shellcheck disable=SC2012
+        local files
+        files=$(ls "${BOOKMARKS_DIR}"/*.json 2>/dev/null || true)
+        if [ -n "$files" ]; then
+            bookmark_count=$(echo "$files" | wc -l)
+        fi
+    fi
+
+    echo ""
+    echo "╔═══════════════════════════════════════════╗"
+    echo "║        SessionBridge Session Summary      ║"
+    echo "╚═══════════════════════════════════════════╝"
+    echo ""
+    echo "  Session:     ${summary}"
+    echo "  ID:          ${sid}"
+    echo "  Started:     ${started}"
+    echo ""
+    echo "  ── Activity ──"
+    echo "  Total events:     ${event_count}"
+    echo "  Active tasks:     ${active_count}"
+    echo "  Completed tasks:  ${completed_count}"
+    echo "  Decisions made:   ${decision_count}"
+    echo "  Files touched:    ${file_count}"
+    echo "  Bookmarks saved:  ${bookmark_count}"
+    echo ""
+
+    # Active tasks
+    local active_tasks
+    active_tasks=$(echo "$ctx" | jq -r '.active_tasks[] // empty' 2>/dev/null)
+    if [ -n "$active_tasks" ]; then
+        echo "  ── Active Tasks ──"
+        echo "$active_tasks" | while IFS= read -r task; do
+            echo "    ◇ ${task}"
+        done
+        echo ""
+    fi
+
+    # Recent completed (last 5)
+    local recent_completed
+    recent_completed=$(echo "$ctx" | jq -r '.completed_tasks[-5:][] // empty' 2>/dev/null)
+    if [ -n "$recent_completed" ]; then
+        echo "  ── Recently Completed ──"
+        echo "$recent_completed" | while IFS= read -r task; do
+            echo "    ✓ ${task}"
+        done
+        echo ""
+    fi
+
+    # Bookmark list
+    if [ -d "${BOOKMARKS_DIR}" ]; then
+        local bookmarks
+        bookmarks=$(ls "${BOOKMARKS_DIR}"/*.json 2>/dev/null | xargs -I{} basename {} .json || true)
+        if [ -n "$bookmarks" ]; then
+            echo "  ── Bookmarks ──"
+            echo "$bookmarks" | while IFS= read -r bm; do
+                echo "    🔖 ${bm}"
+            done
+            echo ""
+        fi
+    fi
+
+    # Recent decisions (last 3)
+    local recent_decisions
+    recent_decisions=$(echo "$ctx" | jq -r '.recent_decisions[-3:] | .[] | "\(.what): \(.why)"' 2>/dev/null)
+    if [ -n "$recent_decisions" ]; then
+        echo "  ── Recent Decisions ──"
+        echo "$recent_decisions" | while IFS= read -r dec; do
+            echo "    • ${dec}"
+        done
+        echo ""
+    fi
+
+    # Last 5 events (latest types)
+    if [ -f "${EVENTS_FILE}" ]; then
+        local recent_events
+        recent_events=$(tail -5 "${EVENTS_FILE}" | jq -r '"    [\(.e)] \(.data | tostring | .[0:60])"' 2>/dev/null)
+        if [ -n "$recent_events" ]; then
+            echo "  ── Last Events ──"
+            echo "$recent_events"
+            echo ""
+        fi
+    fi
+
+    # Tips
+    echo "  ── Tips ──"
+    echo "    • bridge.sh bookmark save <name>  — snapshot this state"
+    echo "    • bridge.sh bookmark list          — see saved snapshots"
+    echo "    • bridge.sh recent 10              — see recent events"
+    echo ""
+}

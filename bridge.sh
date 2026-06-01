@@ -20,8 +20,9 @@ show_help() {
 SessionBridge — Agent session continuity
 
 USAGE:
-  bridge.sh init [summary]    Initialize a new session
+  bridge.sh init [summary]    Initialize a new session (set SB_GC_KEEP for auto-GC)
   bridge.sh status            Show current session status
+  bridge.sh summary           Show a comprehensive session summary with stats
   bridge.sh env               Emit shell env vars (source via: source <(bridge.sh env))
   bridge.sh log <type> [data] Log an event (data as JSON string)
   bridge.sh recent [n]        Show recent N events (default 10)
@@ -51,6 +52,9 @@ SOURCE INTO AGENT (bash/zsh):
 
 HOUSEKEEPING:
   bridge.sh gc [keep=N]   Remove all but last N events from log
+
+AUTO-GC:
+  SB_GC_KEEP=500 bridge.sh init "My session"   Auto-GC on init
 HELP
 }
 
@@ -63,16 +67,31 @@ main() {
         init)
             sb_require_jq
             local summary="${1:-Session initialized}"
+            local keep_gc="${SB_GC_KEEP:-}"
+
+            # Auto-GC: if SB_GC_KEEP is set, gc before init
+            if [ -n "$keep_gc" ] && [ -f "${EVENTS_FILE}" ]; then
+                sb_gc "$keep_gc" >/dev/null 2>&1 || true
+            fi
+
             local session_id
             session_id=$(sb_init_context "${summary}")
             sb_log session_start "{\"reason\":\"init\",\"summary\":\"${summary}\"}" "${session_id}"
             echo "SessionBridge initialized."
             echo "Session ID: ${session_id}"
+            if [ -n "${keep_gc}" ]; then
+                echo "Auto-GC: keeping last ${keep_gc} events"
+            fi
             ;;
 
         status)
             sb_require_jq
             sb_status
+            ;;
+
+        summary)
+            sb_require_jq
+            sb_summary_report
             ;;
 
         env)

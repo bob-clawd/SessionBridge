@@ -85,6 +85,9 @@ Fields:
 # Initialize a session (creates .session-bridge/)
 ./bridge.sh init
 
+# Initialize with auto-GC (keeps last 500 events, removes older ones)
+SB_GC_KEEP=500 ./bridge.sh init "My session"
+
 # Log an event
 ./bridge.sh log task_start '{"task":"Implement X"}'
 ./bridge.sh log decision '{"what":"Use JSONL","why":"simple"}'
@@ -92,6 +95,9 @@ Fields:
 
 # Show status (context + recent events)
 ./bridge.sh status
+
+# Show comprehensive session summary
+./bridge.sh summary
 
 # Show recent events
 ./bridge.sh recent [n]
@@ -140,13 +146,46 @@ Remove old events from the log to keep it manageable:
 
 Uses atomic temp-file rename, safe for concurrent use.
 
+## Auto-GC on Init
+
+Set the `SB_GC_KEEP` environment variable to automatically garbage-collect
+old events before initializing a new session:
+
+```bash
+# Keep only last 500 events before init
+SB_GC_KEEP=500 ./bridge.sh init "My session"
+
+# Keep only last 100 events
+SB_GC_KEEP=100 ./bridge.sh init "Tight session"
+```
+
+This is useful in cron-driven agent sessions where the event log grows
+unbounded. Set and forget in your crontab or Heartbeat config.
+
+## Session Summary (`bridge.sh summary`)
+
+Produces a comprehensive, human-readable report of the current session
+state, including:
+
+- Session name and ID
+- Event, task, decision, and file counts
+- Active tasks (unfinished work)
+- Recently completed tasks
+- Saved bookmarks
+- Recent decisions with rationale
+- Last 5 events from the log
+- Tips for next steps
+
+Useful as an agent's entry point to quickly understand where it left off.
+
 ## Session Recovery Flow
 
 1. Agent starts → checks for `.session-bridge/`
-2. If found: `./bridge.sh status` → restores context
-3. Read `recent 5` → understands what was happening
-4. Continue work from where it left off
-5. On exit: `./bridge.sh log session_end`
+2. If found: `./bridge.sh summary` → full context restore
+3. Read active tasks → understands what was pending
+4. Read recent decisions → knows why previous choices were made
+5. Continue work from where it left off
+6. On exit: `./bridge.sh log session_end`
 
 ## Design Decisions
 
@@ -161,5 +200,4 @@ Uses atomic temp-file rename, safe for concurrent use.
 - `bridge.sh diff` — compare current context with last bookmark
 - `bridge.sh tags` — tag-based filtering of events
 - Auto-checkpoint on long idle
-- `bridge.sh summary` — generate a natural-language summary of the session
-- Retention policy config (auto-gc on start)
+- Automatic summary on session end

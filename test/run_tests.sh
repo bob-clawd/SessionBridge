@@ -225,6 +225,40 @@ test_checkpoint() {
     teardown
 }
 
+test_summary() {
+    setup
+    "$BRIDGE" init "Summary test" >/dev/null 2>&1
+    "$BRIDGE" task add "Task 1" >/dev/null 2>&1
+    "$BRIDGE" decision "Use JSONL" "Simple" >/dev/null 2>&1
+    "$BRIDGE" touch src/main.py created >/dev/null 2>&1
+    local output
+    output=$("$BRIDGE" summary 2>&1)
+    echo "$output" | grep -q "Summary test" || { echo "Summary missing session name"; teardown; return 1; }
+    echo "$output" | grep -q "Task 1" || { echo "Summary missing active task"; teardown; return 1; }
+    echo "$output" | grep -q "Use JSONL" || { echo "Summary missing decision"; teardown; return 1; }
+    echo "$output" | grep -q "SessionBridge" || { echo "Summary header missing"; teardown; return 1; }
+    teardown
+}
+
+test_auto_gc_on_init() {
+    setup
+    "$BRIDGE" init "Pre-gc" >/dev/null 2>&1
+    # Add 20 events
+    for i in $(seq 1 20); do
+        "$BRIDGE" log test "{\"n\":$i}" >/dev/null 2>&1
+    done
+    local before
+    before=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    [ "$before" -eq 21 ] || { echo "Expected 21 events, got $before"; teardown; return 1; }
+    # Re-init with auto-gc (keep 5)
+    SB_GC_KEEP=5 "$BRIDGE" init "Post-gc" >/dev/null 2>&1
+    local after
+    after=$(wc -l < .session-bridge/events.jsonl | tr -d ' ')
+    # Should have: 5 kept + 1 new session_start
+    [ "$after" -eq 6 ] || { echo "Expected 6 events after auto-gc+init, got $after"; teardown; return 1; }
+    teardown
+}
+
 test_multiple_sessions() {
     setup
     "$BRIDGE" init "Session 1" >/dev/null 2>&1
@@ -261,6 +295,8 @@ run_test "env emits vars" test_env_emits_vars
 run_test "env task variables" test_env_task_vars
 run_test "gc removes old events" test_gc_removes_old_events
 run_test "gc noop under limit" test_gc_noop_when_under_limit
+run_test "summary report" test_summary
+run_test "auto-gc on init" test_auto_gc_on_init
 
 echo ""
 echo "========================"
