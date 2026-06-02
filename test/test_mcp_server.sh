@@ -88,7 +88,7 @@ EOF
     resp=$(mcp_call "$req")
     
     assert_jq "$resp" '.id == 1' "Response id should be 1" || return 1
-    assert_jq "$resp" '.result.tools | length == 18' "Should list 18 tools" || return 1
+    assert_jq "$resp" '.result.tools | length == 19' "Should list 19 tools" || return 1
     assert_jq "$resp" '.result.tools[] | select(.name == "sb_init") | length > 0' "Should include sb_init" || return 1
     assert_jq "$resp" '.result.tools[] | select(.name == "sb_heartbeat") | length > 0' "Should include sb_heartbeat" || return 1
     assert_jq "$resp" '.result.tools[] | select(.name == "sb_bookmark_delete") | length > 0' "Should include sb_bookmark_delete" || return 1
@@ -299,7 +299,7 @@ EOF
     local resp
     resp=$(mcp_call "$req")
     
-    assert_jq "$resp" '.result.resources | length == 4' "Should list 4 resources" || return 1
+    assert_jq "$resp" '.result.resources | length == 5' "Should list 5 resources" || return 1
     assert_jq "$resp" '.result.resources[] | select(.uri == "sessionbridge://context") | length > 0' "Should include context resource" || return 1
     assert_jq "$resp" '.result.resources[] | select(.uri == "sessionbridge://recent/10") | length > 0' "Should include recent/10 resource" || return 1
     assert_jq "$resp" '.result.resources[] | select(.uri == "sessionbridge://recent/50") | length > 0' "Should include recent/50 resource" || return 1
@@ -442,7 +442,7 @@ EOF
 echo "SessionBridge MCP Server Test Suite"
 echo "==================================="
 
-run_test "tools/list returns 18 tools" test_tools_list
+run_test "tools/list returns 19 tools" test_tools_list
 run_test "status before init returns error" test_status_before_init
 run_test "init via MCP" test_init_via_mcp
 run_test "init then status" test_init_then_status
@@ -454,7 +454,7 @@ run_test "touch via MCP" test_touch_via_mcp
 run_test "bookmarks via MCP (save/list/restore/delete)" test_bookmarks_via_mcp
 run_test "tag list via MCP" test_tag_list_via_mcp
 run_test "summary via MCP" test_summary_via_mcp
-run_test "resources/list returns 4 resources" test_resources_list
+run_test "resources/list returns 5 resources" test_resources_list
 run_test "prompts/list returns 2 prompts" test_prompts_list
 run_test "sb_log error before init" test_sb_log_error_before_init
 test_events_resource() {
