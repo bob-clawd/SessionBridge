@@ -603,6 +603,68 @@ test_init_with_mixed_tags_and_auto_gc() {
     teardown
 }
 
+test_top_shows_completed_tasks() {
+    setup
+    "$BRIDGE" init "Timesink test" >/dev/null 2>&1
+    "$BRIDGE" task add "Task Alpha" >/dev/null 2>&1
+    "$BRIDGE" task done "Task Alpha" >/dev/null 2>&1
+    "$BRIDGE" task add "Task Beta" >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" top 2>&1)
+
+    # Should have header
+    echo "$output" | grep -q "Timesink Report" || { echo "Missing header"; teardown; return 1; }
+    # Should show the session name
+    echo "$output" | grep -q "Timesink test" || { echo "Missing session name"; teardown; return 1; }
+    # Should show completed task
+    echo "$output" | grep -q "Task Alpha" || { echo "Missing completed task"; teardown; return 1; }
+    # Should mark completed with checkmark
+    echo "$output" | grep -q "✓.*Task Alpha" || { echo "Missing checkmark on completed task"; teardown; return 1; }
+    # Should show running task
+    echo "$output" | grep -q "▶.*Task Beta" || { echo "Missing running indicator on Task Beta"; teardown; return 1; }
+    # Should mention running tasks in footer
+    echo "$output" | grep -q "1 still active" || { echo "Missing running tasks footer"; teardown; return 1; }
+
+    teardown
+}
+
+test_top_no_tasks() {
+    setup
+    "$BRIDGE" init "Empty session" >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" top 2>&1)
+
+    echo "$output" | grep -q "No task events" || { echo "Should say no tasks"; teardown; return 1; }
+
+    teardown
+}
+
+test_top_limit() {
+    setup
+    "$BRIDGE" init "Limit test" >/dev/null 2>&1
+    "$BRIDGE" task add "Task A" >/dev/null 2>&1
+    "$BRIDGE" task done "Task A" >/dev/null 2>&1
+    "$BRIDGE" task add "Task B" >/dev/null 2>&1
+
+    local output
+    output=$("$BRIDGE" top 1 2>&1)
+
+    # Should only show 1 task
+    echo "$output" | grep -q "Showing:  top 1" || { echo "Missing limit indicator"; teardown; return 1; }
+
+    teardown
+}
+
+test_top_no_init() {
+    setup
+    local output
+    output=$("$BRIDGE" top 2>&1 || true)
+    echo "$output" | grep -qi "not initialized" || { echo "Should fail without init"; teardown; return 1; }
+    teardown
+}
+
 test_autockpt_not_idle() {
     setup
     "$BRIDGE" init "Not idle" >/dev/null 2>&1
@@ -679,6 +741,10 @@ run_test "init with --tag stores in context and event" test_init_with_tags
 run_test "init without --tag uses empty array" test_init_without_tags
 run_test "tag list shows session-level tags" test_tag_list_shows_session_tags
 run_test "init with --tag and auto-gc" test_init_with_mixed_tags_and_auto_gc
+run_test "top: shows completed and running tasks" test_top_shows_completed_tasks
+run_test "top: no tasks message" test_top_no_tasks
+run_test "top: limit flag" test_top_limit
+run_test "top: fails without init" test_top_no_init
 
 echo ""
 echo "========================"

@@ -89,6 +89,10 @@ Fields:
 ## CLI Usage
 
 ```bash
+# Timesink report — time spent per task (derived from task_start/task_end)
+./bridge.sh top                   # all tasks sorted by duration
+./bridge.sh top 5                 # top 5 tasks by duration
+
 # Initialize a session (creates .session-bridge/)
 ./bridge.sh init
 
@@ -332,8 +336,7 @@ sessionbridge://recent/50, sessionbridge://events
 
 ## Future Ideas
 
-- **sb_top / timesink report** — Show which tasks consumed the most events / time
-  (derived from task_start/task_end pairs). Useful to identify where agent cycles are spent.
+- ~~**sb_top / timesink report**~~ ✅ *(v1.17)*
 - **Context compression** — Summarize stale context entries (>2h) into a single
   compressed "archive" entry to keep context.json lean for long-lived sessions.
 - **sb_export** — Export session log as Markdown report (human-readable summary
@@ -343,10 +346,7 @@ sessionbridge://recent/50, sessionbridge://events
   timeline of events from both source sessions for visual comparison.
 - **MCP resource for full event log** — Add `sessionbridge://events` resource
   to stream the entire events.jsonl via MCP for agent consumption.
-- **Session tags on init** — Allow `bridge.sh init "Summary" --tag foo bar` to
-  tag the entire session for later filtering.
-- **Session tags on init** — Allow `bridge.sh init "Summary" --tag foo bar` to
-  tag the entire session for later filtering.
+- ~~**Session tags on init** — Allow `bridge.sh init "Summary" --tag foo bar` to~~ ✅ *(v1.16)*
 - **Auto-expire stale sessions in GC** — When running GC, also clean up stale
   context.json / bookmarks for sessions older than N days.
 - **Merged session dashboard** — After `bridge.sh merge`, show a side-by-side
@@ -355,6 +355,15 @@ sessionbridge://recent/50, sessionbridge://events
 ## Completed (v1.14)
 
 - ✅ `sessionbridge://events` resource — full event log via MCP (v1.14)
+
+## Completed (v1.17)
+
+- ✅ **sb_top / timesink report** — `bridge.sh top [limit]` zeigt Zeit pro Task
+  an, abgeleitet aus task_start/task_end Paaren. Komplette/aktive Tasks,
+  sortiert nach Dauer, formatierte Zeitangabe (h/m/s).
+- ✅ **MCP Tool** — `sb_top` mit optionalem `limit` Parameter
+- ✅ **MCP Resource** — `sessionbridge://top` für agent-native Integration
+- ✅ **Test suite erweitert** — 47 Tests (39 core + 19 MCP, 0 failures)
 
 ## Completed (v1.15)
 

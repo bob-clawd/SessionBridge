@@ -17,6 +17,7 @@ source "${SCRIPT_DIR}/lib/diff.sh"
 source "${SCRIPT_DIR}/lib/tags.sh"
 source "${SCRIPT_DIR}/lib/merge.sh"
 source "${SCRIPT_DIR}/lib/export.sh"
+source "${SCRIPT_DIR}/lib/timesink.sh"
 
 # --- Help ---
 show_help() {
@@ -35,6 +36,7 @@ USAGE:
   bridge.sh recent [n]        Show recent N events (default 10)
   bridge.sh diff <bookmark>   Compare current context with a saved bookmark
   bridge.sh gc [keep]         Garbage-collect events, keep last N (default 500)
+  bridge.sh top [limit]       Timesink report — time spent per task (top N)
   bridge.sh export [file]     Export session as Markdown report
   bridge.sh export-json [file] Export session as JSON dump
   bridge.sh checkpoint [note] Save a checkpoint event
@@ -62,6 +64,9 @@ SOURCE INTO AGENT (bash/zsh):
   source <(bridge.sh env)
   echo \"Session: \$SB_SESSION_ID\"
   echo \"Tasks: \$SB_ACTIVE_TASKS\"
+
+ANALYTICS:
+  bridge.sh top [limit]   Show timesink report — time spent per task (top N)
 
 HOUSEKEEPING:
   bridge.sh gc [keep=N]   Remove all but last N events from log
@@ -222,6 +227,12 @@ main() {
         gc)
             local keep="${1:-500}"
             sb_gc "${keep}"
+            ;;
+
+        top)
+            sb_require_jq
+            local top_limit="${1:-0}"
+            sb_top "${top_limit}"
             ;;
 
         checkpoint)

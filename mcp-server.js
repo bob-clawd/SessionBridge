@@ -81,7 +81,7 @@ function shellEscape(str) {
 // ── MCP Server ─────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'sessionbridge-mcp', version: '1.15.0' },
+  { name: 'sessionbridge-mcp', version: '1.17.0' },
   { capabilities: { tools: {}, resources: {}, prompts: {} } }
 );
 
@@ -112,6 +112,12 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => ({
       name: 'Full Event Log',
       description: 'Complete events.jsonl log (newline-delimited JSON)',
       mimeType: 'application/x-ndjson',
+    },
+    {
+      uri: 'sessionbridge://top',
+      name: 'Timesink Report',
+      description: 'Time spent per task — derived from task_start/task_end pairs',
+      mimeType: 'text/plain',
     },
   ],
 }));
@@ -152,6 +158,19 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     } catch {
       throw new Error('Could not read events.jsonl');
     }
+  }
+
+  if (uri === 'sessionbridge://top') {
+    if (!isInitialized()) {
+      throw new Error('SessionBridge not initialized. Call sb_init first.');
+    }
+    const result = runBridge('top');
+    if (result.ok) {
+      return {
+        contents: [{ uri, mimeType: 'text/plain', text: result.stdout }],
+      };
+    }
+    throw new Error(result.stderr || 'Could not generate timesink report');
   }
 
   throw new Error(`Unknown resource: ${uri}`);
@@ -455,6 +474,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
+    {
+      name: 'sb_top',
+      description: 'Timesink report — show time spent per task (derived from task_start/task_end pairs)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: 'Show only top N tasks by duration (0 = all)', default: 0 },
+        },
+      },
+    },
   ],
 }));
 
@@ -590,6 +619,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (!isInitialized()) return { content: [{ type: 'text', text: 'SessionBridge not initialized.' }] };
       const jOutFile = args?.output ? shellEscape(args.output) : '';
       const result = runBridge(`export-json ${jOutFile}`);
+      return { content: [{ type: 'text', text: result.ok ? result.stdout : `Error: ${result.stderr}` }] };
+    }
+
+    case 'sb_top': {
+      if (!isInitialized()) return { content: [{ type: 'text', text: 'SessionBridge not initialized.' }] };
+      const topLimit = args?.limit || 0;
+      const result = runBridge(`top ${topLimit}`);
       return { content: [{ type: 'text', text: result.ok ? result.stdout : `Error: ${result.stderr}` }] };
     }
 
